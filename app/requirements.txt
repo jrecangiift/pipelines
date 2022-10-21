@@ -1,0 +1,11 @@
+altair
+boto3
+pandas
+streamlit 
+streamlit-ace
+streamlit-aggrid
+streamlit-echarts
+streamlit-card
+plotly
+plotly-express
+jinja2==3.0.0
