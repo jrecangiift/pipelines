@@ -4,7 +4,13 @@ import streamlit as st
 import os
 
 import styling
+from PIL import Image
+image = Image.open('assets/analytics_logical_architecture.png')
 
+
+with st.expander("Logical Architecture"):
+
+    st.image(image)
 
 
 # import sys

@@ -1,4 +1,3 @@
-
 import simplejson as json
 import logging
 import time
@@ -9,7 +8,7 @@ from client_aggregate_model import ClientAggregateReport
 from client_aggregate_analytics import ClientsAggregateAnalytics
 from fx_conversion import FXConverter
 from revenue_model import BusinessLine, ProductLine, RevenueClassification
-from marketplace_model import MarketPlaceReport
+from marketplace_model import MarketplaceReport
 from marketplace_controller import BuildMarketplaceReport
 from boto3.dynamodb.conditions import Key
 from decimal import Decimal
@@ -96,21 +95,28 @@ def MakeConfigfileSample():
 # print(caa.main_frame)
 
 # caa = ClientsAggregateAnalytics()
-# report = ClientAggregateReport.Load('BNI',8,2022)
+# report = ClientAggregateReport.Load('BDI',8,2022)
 # caa.PushReport(report)
-
+# print(caa.revenue_frame)
+# print(caa.main_frame)
 # report = ClientAggregateReport.ListAll()
 # print(report)
-client = 'BRI'
-BuildClientReport(client, 4,2022)
-BuildClientReport(client, 5,2022)
-BuildClientReport(client, 6,2022)
-BuildClientReport(client, 7,2022)
-BuildClientReport(client, 8,2022)
-BuildClientReport(client, 9,2022)
 
-# report = BuildMarketplaceReport(month,year)
-# print(report)
-# print(json.dumps(report.to_dict(), sort_keys=True, indent=4, cls=common.JSONEncoder))
 
-      
+
+
+# client = 'BRI'
+# BuildClientReport(client, 4,2022)
+# BuildClientReport(client, 5,2022)
+# BuildClientReport(client, 6,2022)
+# BuildClientReport(client, 7,2022)
+# BuildClientReport(client, 8,2022)
+# BuildClientReport(client, 9,2022)
+
+# report = BuildMarketplaceReport(9,2022)
+
+
+report = MarketplaceReport.Load(9,2022)
+
+
+print(report)

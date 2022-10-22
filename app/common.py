@@ -1,21 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-STD_CCY_FX={
-    "IDR":0.000067,
-    "AED":0.35,
-    "USD":1,
-    "QAR":0.27,
-    "BDT":0.0096,
-    "LKR":0.0028,
-    "OMR":2.60,
-    "MVR":0.65,
-    "INR":0.012,
-    "KWD":3.23
 
-
-
-}
 
 CLIENT_REGIONAL_CONFIG ={
     "Asia":{

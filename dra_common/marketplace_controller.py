@@ -5,7 +5,7 @@ import time
 import traceback
 import requests
 import boto3
-from marketplace_model import MarketPlaceReport
+from marketplace_model import MarketplaceReport, MarketplaceTransaction
 from boto3.dynamodb.conditions import Key
 from decimal import Decimal
 
@@ -13,7 +13,7 @@ TABLE_TRANSACTIONS = "reportingTransactions"
 
 def BuildMarketplaceReport(month, year):
 
-    report = MarketPlaceReport(month,year)
+    report = MarketplaceReport(month,year)
 
     id_key = str(year)+"-"
     if month < 10:
@@ -38,26 +38,32 @@ def BuildMarketplaceReport(month, year):
         # print(transactions[0])
         for transaction in transactions:
 
-            supplier_name = transaction['SupplierName']
-            supplier_currency = transaction['SupplierCurrencyCode']
-            supplier_amount = transaction['SupplierTransactionAmount']
-            margin = transaction['CalculatedMargin']
+            # supplier_name = transaction['SupplierName']
+            # supplier_currency = transaction['SupplierCurrencyCode']
+            # supplier_amount = transaction['SupplierTransactionAmount']
+            # margin = transaction['CalculatedMargin']
 
-            client_currency = transaction['ClientCurrencyCode']
-            client_amount = transaction['ClientTransactionAmount']
-            client_code = transaction['ClientCode']
+            # client_currency = transaction['ClientCurrencyCode']
+            # client_amount = transaction['ClientTransactionAmount']
+            # client_code = transaction['ClientCode']
+
+            tr = MarketplaceTransaction(
+                transaction['SupplierName'],
+                transaction['ClientCode'],
+                transaction['ClientCurrencyCode'],
+                transaction['SupplierCurrencyCode'],
+                transaction['ClientTransactionAmount'],
+                transaction['SupplierTransactionAmount'],
+                transaction['CalculatedMargin']
+            )
+            report.addTransaction(tr)
+
+        report.Save()
 
 
 
-            # Build the supplier name into currency dictionary
-            report.addSupplierTransaction(supplier_name,supplier_currency,margin,supplier_amount)
-            report.addClientTransaction(supplier_name,supplier_currency,margin,supplier_amount)
+        print(report.margins_frame.to_json())
 
-            # # Market & Credit Risk Register
-            # if (client_amount) != supplier_amount:
-            #     print(client_code+": "+str(client_amount-supplier_amount))
-            #     # print(json.dumps(transaction, sort_keys=True, indent=4, cls=JSONEncoder))
-            
         return report    
     else:
         print("no transactions available") 

@@ -24,3 +24,7 @@ class FXConverter:
 
     def point_to_cst_usd(self, amount):
         return self.point_value*Decimal(CONSTANT_FX[self.ccy_code])*Decimal(amount)
+
+    def ccy_to_cst_usd(self, amount, ccy):
+        return Decimal(CONSTANT_FX[ccy])*Decimal(amount)
+

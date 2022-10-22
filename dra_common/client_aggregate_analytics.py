@@ -4,7 +4,7 @@ from cmath import nan
 from dataclasses import dataclass
 from multiprocessing.connection import Client
 from unicodedata import decimal
-from xmlrpc.client import Boolean
+
 import boto3
 from boto3.dynamodb.conditions import Key
 import json
@@ -21,11 +21,16 @@ import pandas as pd
 import client_aggregate_model as cam
 import traceback
 
+#### GLOBAL DATA FRAMES ##########################
 MAIN_FRAME_COLUMNS = ["Client","Date","Business Line","Product","Type","Identifier","Value"]
+REVENUE_COLUMNS = ["Client","Date","Business Line","Product","Revenue Type","Gross Amount ($)","Net Amount ($)","Base Amount","Base Currency","All Tags","Net Offset", "Label"]
+##################################################
 
+#### LBMS DATA FRAMES ############################
 ACCRUALS_COLUMNS = ["Client","Date","Channel","Product","Points Accrued ($)", "GMV ($)", "Points Expired ($)"]
 REDEMPTION_COLUMNS = ["Client","Date","Redemption Option","Points Redeemed ($)","Number Transactions"]
 USERS_POINTS_COLUMNS = ["Client","Date","Points Value Threashold ($)","Number Users","Points Value ($)"]
+##################################################
 
 @dataclass_json
 @dataclass
@@ -34,6 +39,7 @@ class ClientsAggregateAnalytics:
     
 
     main_frame: pd.DataFrame = pd.DataFrame(columns=MAIN_FRAME_COLUMNS)
+    revenue_frame:pd.DataFrame = pd.DataFrame(columns=REVENUE_COLUMNS)
     lbms_accruals: pd.DataFrame = pd.DataFrame(columns=ACCRUALS_COLUMNS)
     lbms_redemptions: pd.DataFrame = pd.DataFrame(columns=REDEMPTION_COLUMNS)
     lbms_users_points: pd.DataFrame = pd.DataFrame(columns=USERS_POINTS_COLUMNS)
@@ -45,9 +51,10 @@ class ClientsAggregateAnalytics:
         date=str(report.month)+"/"+str(report.year)
         items=[]
         try:
-            # start with metrics:
+            # Process LBMS
             if 'LBMS' in report.configuration.products:
-
+                PROD="LBMS"
+                BIZ="Corporate Loyalty"
                 fx = FXConverter(
                     point_value =report.configuration.lbms_configuration.point_value_to_local_ccy,
                     ccy_code=report.configuration.lbms_configuration.local_ccy
@@ -63,54 +70,54 @@ class ClientsAggregateAnalytics:
                 ### Top Level Metrics
 
                 items.append(
-                    mk_mf_item(client_code,date,"Corporate Loyalty","LBMS","metrics","total_points",fx.point_to_cst_usd(metrics.lbms_state.total_points))
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","total_points",fx.point_to_cst_usd(metrics.lbms_state.total_points))
                 )
                 items.append(
-                    mk_mf_item(client_code,date,"Corporate Loyalty","LBMS","metrics","points_accrued",fx.point_to_cst_usd(metrics.points_accrued))
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","points_accrued",fx.point_to_cst_usd(metrics.points_accrued))
                 )
                 items.append(
-                    mk_mf_item(client_code,date,"Corporate Loyalty","LBMS","metrics","points_redeemed",fx.point_to_cst_usd(metrics.points_redeemed))
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","points_redeemed",fx.point_to_cst_usd(metrics.points_redeemed))
                 )
                 items.append(
-                    mk_mf_item(client_code,date,"Corporate Loyalty","LBMS","metrics","total_users",metrics.lbms_state.total_users)
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","total_users",metrics.lbms_state.total_users)
                 )
                 items.append(
-                    mk_mf_item(client_code,date,"Corporate Loyalty","LBMS","metrics","active_users",metrics.customers_activity.earned_points)
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","active_users",metrics.customers_activity.earned_points)
                 )
                 items.append(
-                    mk_mf_item(client_code,date,"Corporate Loyalty","LBMS","metrics","accrual_gmv",gmv)
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","accrual_gmv",gmv)
                 )
+
+                df_main = pd.DataFrame(items,columns=MAIN_FRAME_COLUMNS)
+                self.main_frame = pd.concat([self.main_frame,df_main])
 
                 ### Revenues
+                rev_items = []
                 for rev in report.revenues:
                     # Gross value
+                    
                     cl = rev.classification
-                    items.append(
-                    mk_mf_item(
-                        client_code,
-                        date,
-                        cl.business_line,
-                        cl.product_line,
-                        "gross_revenue",
-                        cl.tags["type"],
-                        fx.local_to_cst_usd(rev.amount)
-                    ))
-                    # Net value
-                    cl = rev.classification
-                    items.append(
-                    mk_mf_item(
-                        client_code,
-                        date,
-                        cl.business_line,
-                        cl.product_line,
-                        "net_revenue",
-                        cl.tags["type"],
-                        fx.local_to_cst_usd(rev.amount)*Decimal(1-rev.net_offset)
-                    ))
+                    REVENUE_COLUMNS = ["Client","Date","Business Line","Product","Revenue Type","Gross Amount ($)","Net Amount ($)","Base Amount","Base Currency","All Tags","Net Offset", "Label"]
+                    rev_items.append(
+                    {
+                        "Client":client_code,
+                        "Date":date,
+                        "Business Line":cl.business_line,
+                        "Product":cl.product_line,
+                        "Revenue Type":cl.tags["type"],
+                        "Gross Amount ($)":fx.ccy_to_cst_usd(rev.amount, rev.currency_code),
+                        "Net Amount ($)":fx.ccy_to_cst_usd(rev.amount, rev.currency_code)*(1-rev.net_offset),
+                        "Base Amount":rev.amount,
+                        "Base Currency":rev.currency_code,
+                        "All Tags":cl.tags,
+                        "Net Offset":rev.net_offset,
+                        "Label": rev.label
+                    })
+                    
 
                 ## Second Order Metrics
-                df = pd.DataFrame(items,columns=MAIN_FRAME_COLUMNS)
-                self.main_frame = pd.concat([self.main_frame,df])
+                df_rev = pd.DataFrame(rev_items,columns=REVENUE_COLUMNS)
+                self.revenue_frame = pd.concat([self.revenue_frame,df_rev])
 
                 #### push to the accrual frame
                 acc_items = []
@@ -188,12 +195,45 @@ class ClientsAggregateAnalytics:
                 df_up= pd.DataFrame(up_items,columns =USERS_POINTS_COLUMNS)
                 self.lbms_users_points = pd.concat([self.lbms_users_points,df_up])
 
+                ### push second order metrics for LBMS
+                secondary_metrics_items = []
+
+                net_revenues =  df_rev[(df_rev['Client']==client_code) & (df_rev['Date']==date)&(df_rev['Business Line']==BIZ) & (df_rev['Product']==PROD)]["Net Amount ($)"].sum()
+                gross_revenues = df_rev[(df_rev['Client']==client_code) & (df_rev['Date']==date)&(df_rev['Business Line']==BIZ) & (df_rev['Product']==PROD) ]["Gross Amount ($)"].sum()
+                take_rate = net_revenues / self.GetMetrics(client_code,date,BIZ,PROD,"accrual_gmv")
+                net_revenue_per_active_user = net_revenues / self.GetMetrics(client_code,date,BIZ,PROD,"active_users")
+                accrual_engagement_rate = self.GetMetrics(client_code,date,BIZ,PROD,"active_users") / self.GetMetrics(client_code,date,BIZ,PROD,"total_users")
+
+                secondary_metrics_items.append(
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","net_revenues", net_revenues )
+                )
+                secondary_metrics_items.append(
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","gross_revenues", gross_revenues )
+                )
+                secondary_metrics_items.append(
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","take_rate", take_rate )
+                )
+                secondary_metrics_items.append(
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","net_revenue_per_active_user", net_revenue_per_active_user )
+                )
+                secondary_metrics_items.append(
+                    mk_mf_item(client_code,date,BIZ,PROD,"metrics","accrual_engagement_rate", accrual_engagement_rate )
+                )
 
 
 
+
+                df_secondary = pd.DataFrame(secondary_metrics_items,columns=MAIN_FRAME_COLUMNS)
+                self.main_frame = pd.concat([self.main_frame,df_secondary])
+
+
+
+            # Process Other Products / Feeds
+
+            
 
         except:
-            # traceback.print_exc()
+            traceback.print_exc()
             self.missing_data_points.append((client_code,date))
 
 
@@ -217,29 +257,11 @@ class ClientsAggregateAnalytics:
 
     # metrics are 1-d per url, client and date
     # this method either reaches directly for data in main frame
-    # or runs calculation for second order data
+    # or runs calculation for second order metrics (e.g. total net revenues which requires a different data structure)
     def GetMetrics(self,client,date,business,product,identifier):
-        df = self.main_frame
-        url = business+"."+product+".metrics."+identifier
-        if url == "Corporate Loyalty.LBMS.metrics.net_revenues":
-            return df[(df['Client']==client) & (df['Date']==date)&
-            (df['Business Line']==business) & (df['Product']==product) 
-            & (df['Type']=='net_revenue') ]['Value'].sum()
-
-        elif url == "Corporate Loyalty.LBMS.metrics.take_rate":
-            net_revenue = self.GetMetrics(client,date,business,product,"net_revenues")
-            return net_revenue / self.GetMetrics(client,date,business,product,"accrual_gmv")
-        
-        elif url == "Corporate Loyalty.LBMS.metrics.net_revenue_per_active_user":
-            net_revenue = self.GetMetrics(client,date,business,product,"net_revenues")
-            return net_revenue / self.GetMetrics(client,date,business,product,"active_users")
-
-        elif url == "Corporate Loyalty.LBMS.metrics.accrual_engagement_rate":       
-            return self.GetMetrics(client,date,business,product,"active_users") / self.GetMetrics(client,date,business,product,"total_users")
-        
-        else:
-            return df[(df['Client']==client) & (df['Date']==date)& (df['Business Line']==business) 
-            & (df['Product']==product)  & (df['Type']=='metrics') & (df['Identifier']==identifier)]['Value'].sum()
+        df_main = self.main_frame 
+        return df_main[(df_main['Client']==client) & (df_main['Date']==date)& (df_main['Business Line']==business) 
+        & (df_main['Product']==product)  & (df_main['Type']=='metrics') & (df_main['Identifier']==identifier)]['Value'].sum()
 
     def GetMetricsRelativePerf(self,client,date_from,date_to,business,product,identifier):
         metrics_to = self.GetMetrics(client,date_to,business,product,identifier)

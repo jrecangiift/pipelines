@@ -146,7 +146,6 @@ class ClientAggregateReport:
         return self.product_metrics.lbms_metrics.points_redeemed_per_internal_category[cat].sum
 
     def Save(self):
-
         s3_client = boto3.client('s3')
         key = self.client_code + "@"+str(self.month) + "@"+str(self.year)+".json"
         data = s3_client.put_object(Bucket=AGGREGATE_REPORTING_AWS, Key=key, Body=self.to_json())

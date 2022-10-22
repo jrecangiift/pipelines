@@ -10,3 +10,4 @@ plotly
 plotly-express
 jinja2==3.0.0
 dataclasses-json
+tk

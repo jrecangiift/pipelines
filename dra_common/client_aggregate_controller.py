@@ -11,7 +11,7 @@ from typing import Dict,List
 
 from client_configuration_model import ClientConfiguration,LBMSConfiguration,RedemptionMapping,LoadClientConfig
 from revenue_model import RevenueItem
-import lbms_controller
+import lbms_client_adapter as lbms_client_adapter
 from client_aggregate_model import ClientAggregateReport, ProductMetrics
 from operator import attrgetter
 
@@ -118,7 +118,7 @@ def BuildClientReport(client,month,year):
 
         # Calculate Product Metrics
         if 'LBMS' in config.products:
-            lbms_controller.UpdateClientAggregateReport(config,report)
+            lbms_client_adapter.UpdateClientAggregateReport(config,report)
             
         # Calculate Client Revenues - sets Revenue Items in the report
         CalculateClientRevenues(config,report)    
