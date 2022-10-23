@@ -1,28 +1,32 @@
+from http import client
 import simplejson as json
 import logging
 import time
 import traceback
 import requests
 import boto3
-from client_aggregate_model import ClientAggregateReport
-from client_aggregate_analytics import ClientsAggregateAnalytics
+
+
+from client_configuration_model import ClientConfiguration,CLIENT_CONFIG_BUCKET,ClientConfigurationManager
+from clients_analytics import ClientsAnalytics
+from product_lbms_model import LBMSMonthlyData
 from fx_conversion import FXConverter
 from revenue_model import BusinessLine, ProductLine, RevenueClassification
-from marketplace_model import MarketplaceReport
-from marketplace_controller import BuildMarketplaceReport
+from product_marketplace_model import MarketplaceReport
+from product_marketplace_controller import BuildMarketplaceReport
 from boto3.dynamodb.conditions import Key
 from decimal import Decimal
 import utils as utils
 import client_configuration_model as ccm
-from client_aggregate_controller import BuildClientReport
+from product_lbms_controller import  BuildMonthlyLBMSData
 from operator import attrgetter
+import pandas as pd
 
-month = 9
-year = 2022
 
 def MakeConfigfileSample():
-    cc = ccm.ClientConfiguration("BDI",
-    ccm.LBMSConfiguration("IDR",10,False),["LBMS","Marketplace"])
+    cc = ccm.ClientConfiguration("ABC",
+    ccm.LBMSConfiguration("IDR",10,False),ccm.MarketplaceConfiguration("BNI"),["LBMS","Marketplace"]
+    )
     
     cc.revenues.single_fixed_revenues.append(ccm.SingleFixedRevenue(
         8,
@@ -71,10 +75,60 @@ def MakeConfigfileSample():
 
 
 
+######## LBMS Monthly Data Build ######
+
+config_manager = ClientConfigurationManager()
+config_manager.Init()
+months = [4,5,6,7,8,9]
+
+# for m in months:
+#     print(m)
+#     config = config_manager.LoadConfig('BNI',m,2022)
+#     lbms_data = BuildMonthlyLBMSData('BNI',m,2022)
+
+cl_analytics = ClientsAnalytics()
+
+
+config = config_manager.LoadConfig('BNI',6,2022)
+lbms_data = LBMSMonthlyData.Load('BNI',6,2022)
+cl_analytics.push_lbms_data(config,lbms_data)
+
+config = config_manager.LoadConfig('BNI',7,2022)
+lbms_data = LBMSMonthlyData.Load('BNI',7,2022)
+cl_analytics.push_lbms_data(config,lbms_data)
+
+config = config_manager.LoadConfig('BNI',9,2022)
+lbms_data = LBMSMonthlyData.Load('BNI',9,2022)
+cl_analytics.push_lbms_data(config,lbms_data)
+
+mktplace_data = MarketplaceReport.Load(9,2022)
+cl_analytics.push_marketplace_data(config,mktplace_data)
+
+print(cl_analytics.main_frame)
+
+
+# lbms_data = LBMSMonthlyData.Load('BNI',6,2022)
+
+# cl_analytics = ClientsAnalytics()
+# cl_analytics.push_lbms_data(config,lbms_data)
+# #######################################
+
+# # print(cl_analytics.get_pricing_index_value('BNI','7/2022',"all_points_redeemed"))
+
+# print(cl_analytics.main_frame)
+
+
+
 
 # report = BuildClientReport('BDI',7,2022)
 
 # report = ClientAggregateReport.Load('BNI',8,2022)
+
+
+
+# spotMarketplaceReport = MarketplaceReport.Load(9,2022)
+
+
 
 # fx = FXConverter(
 #     report.configuration.lbms_configuration.point_value_to_local_ccy,
@@ -95,8 +149,14 @@ def MakeConfigfileSample():
 # print(caa.main_frame)
 
 # caa = ClientsAggregateAnalytics()
-# report = ClientAggregateReport.Load('BDI',8,2022)
-# caa.PushReport(report)
+# report = ClientAggregateReport.Load('BNI',9,2022)
+
+# spotMarketplaceReport = MarketplaceReport.Load(9,2022)
+
+# caa.PushReport(report, spotMarketplaceReport)
+
+
+
 # print(caa.revenue_frame)
 # print(caa.main_frame)
 # report = ClientAggregateReport.ListAll()
@@ -105,7 +165,7 @@ def MakeConfigfileSample():
 
 
 
-# client = 'BRI'
+# client = 'BDI'
 # BuildClientReport(client, 4,2022)
 # BuildClientReport(client, 5,2022)
 # BuildClientReport(client, 6,2022)
@@ -116,7 +176,32 @@ def MakeConfigfileSample():
 # report = BuildMarketplaceReport(9,2022)
 
 
-report = MarketplaceReport.Load(9,2022)
+# report = MarketplaceReport.Load(9,2022)
 
 
-print(report)
+# print(report)
+
+
+######### Testing the config manager ##########
+
+# BUCK = 'dra-config'
+
+
+
+
+# client_config_manager = ClientConfigurationManager()
+# client_config_manager.Init()
+
+# conf = client_config_manager.LoadConfig('BNI',4,2022)
+# print(conf)
+
+
+# print(client_config_manager.client_files_dataframe)
+
+# client_code = "BNI"
+
+# s3_client = boto3.client('s3')
+# key = client_code+".json"
+# data = s3_client.get_object(Bucket=CLIENT_CONFIG_BUCKET, Key=key)
+# contents = data['Body'].read()
+# config = ClientConfiguration.from_json(contents)

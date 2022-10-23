@@ -9,8 +9,8 @@ import time
 import traceback
 import requests
 import boto3
-from marketplace_model import MarketplaceReport
-from marketplace_controller import BuildMarketplaceReport
+from dra_common.product_marketplace_model import MarketplaceReport
+from dra_common.product_marketplace_controller import BuildMarketplaceReport
 from boto3.dynamodb.conditions import Key
 from decimal import Decimal
 import utils

@@ -1,16 +1,23 @@
-import csv
-import codecs
-import json
+
+from unicodedata import decimal
 import boto3
+
+import json
+from decimal import Decimal
+import decimal
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json
+from typing import Dict,List
+import traceback
+from client_configuration_model import ClientConfiguration,ClientConfigurationManager
+from product_lbms_model import LBMSMonthlyData,AccrualChannel, RedemptionOption
+from revenue_model import RevenueItem
+from product_lbms_model import AccrualChannel, Bound, CustomersActivity, LBMSMetrics, LBMSState, PointsAndCount, PointsTiering, ProductAccrual, RedemptionOption
+from operator import attrgetter
 import csv
 import io
-from client_aggregate_model import AccrualChannel, Bound, ClientAggregateReport, CustomersActivity, LBMSMetrics, LBMSState, PointsAndCount, PointsTiering, ProductAccrual, RedemptionOption
-from decimal import Decimal
 
 LBMS_DATA_FOLDER = "dra-client-usage-data-raw"
-
-
-#### Client Channel to AccrualChannel Mapping ####
 
 CHANNELS_MAPPING = {
     "Debit Card":AccrualChannel.debit_card,
@@ -56,6 +63,43 @@ REDEMPTIONS_MAPPING = {
 }
 
 
+
+
+def BuildMonthlyLBMSData(client,month,year):
+
+    try:
+        print("Start BuildClientReport: " + client +"/"+ str(month) + "/"+ str(year))
+        
+        # config_manager = ClientConfigurationManager()
+        # config_manager.Init()
+        # config = config_manager.LoadConfig(client, month, year)
+
+        lbms_data = LBMSMonthlyData(client,month,year)
+
+        _processAcrruals_Standard(lbms_data)
+        _processRedemptions_Standard(lbms_data)
+        _processCustomersActivity_Standard(lbms_data)
+        _processState_Standard(lbms_data)
+
+            
+        # Calculate Client Revenues - sets Revenue Items in the report
+        #CalculateClientRevenues(config,report)    
+
+        # Apply the configuration used
+        # report.configuration=config
+
+        # save the report 
+        lbms_data.Save()
+        print("Done BuildClientReport: " + client +"/"+ str(month) + "/"+ str(year))
+        return lbms_data
+    except:
+        traceback.print_exc()
+        print("Could not BuildClientReport:" +client +"/"+ str(month) + "/"+ str(year) )
+        return {}
+  
+
+
+
 def LoadLBMSDataFile(client_code, month,year,file):
 
     s3_client = boto3.client('s3')
@@ -91,8 +135,8 @@ def _processAcrruals_Standard(report):
         accruals_by_channel[channel].append(ProductAccrual(product_code,points_accrued,gmv,points_expired))
         total_points_accrued+=points_accrued
 
-    report.product_metrics.lbms_metrics.points_accrued_per_channel = accruals_by_channel
-    report.product_metrics.lbms_metrics.points_accrued = total_points_accrued
+    report.metrics.points_accrued_per_channel = accruals_by_channel
+    report.metrics.points_accrued = total_points_accrued
 
 def _processRedemptions_Standard(report):
     
@@ -130,9 +174,9 @@ def _processRedemptions_Standard(report):
             red_redemption_option[redemption_option].sum+=points
             red_redemption_option[redemption_option].count+=1
 
-    report.product_metrics.lbms_metrics.points_redeemed= total_points_redeemed
-    report.product_metrics.lbms_metrics.points_redeemed_per_internal_category = red_internal_cat
-    report.product_metrics.lbms_metrics.points_redeemed_per_redemption_option =  red_redemption_option
+    report.metrics.points_redeemed= total_points_redeemed
+    report.metrics.points_redeemed_per_internal_category = red_internal_cat
+    report.metrics.points_redeemed_per_redemption_option =  red_redemption_option
     
 def _processCustomersActivity_Standard(report):
     
@@ -157,7 +201,7 @@ def _processCustomersActivity_Standard(report):
         if stat == 10:
             custAcc.cancelled=value
     
-    report.product_metrics.lbms_metrics.customers_activity = custAcc
+    report.metrics.customers_activity = custAcc
 
 def _processState_Standard(report):
     
@@ -237,7 +281,7 @@ def _processState_Standard(report):
 
     state.total_users_with_points = state.total_users - state.users_points_tiering.no_points_amount
 
-    report.product_metrics.lbms_metrics.lbms_state = state
+    report.metrics.lbms_state = state
 
 
 

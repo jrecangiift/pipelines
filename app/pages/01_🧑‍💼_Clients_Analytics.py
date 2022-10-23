@@ -1,4 +1,5 @@
 
+from cmath import nan
 from curses import meta
 from turtle import title
 import streamlit as st
@@ -12,7 +13,7 @@ import client_aggregate_model as cam
 from fx_conversion import FXConverter
 from client_aggregate_model import LBMSMetrics
 from client_aggregate_analytics import ClientsAggregateAnalytics
-
+import marketplace_model as mm
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -54,9 +55,24 @@ def format_date(s):
 def get_lbms_metrics(date,identifier):
     return caa.GetMetrics(client, date,"Corporate Loyalty","LBMS",identifier)
 
+
 def get_lbms_metrics_rel_perf(date_from,date_to,identifier):
     return caa.GetMetricsRelativePerf(client, date_from,date_to,"Corporate Loyalty","LBMS",identifier)
 
+
+def get_corp_loyalty_metrics(date,product,identifier):
+    return caa.GetMetrics(client, date,"Corporate Loyalty",product,identifier)
+    
+def get_corp_loyalty_metrics_rel_perf(date_from,date_to,product,identifier):
+    try:
+        return caa.GetMetricsRelativePerf(client, date_from,date_to,"Corporate Loyalty",product,identifier)
+    except:
+        return nan
+
+def write_metric(elem, title, _format, multiplier, product, metric_id, date_from, date_to):
+    elem.metric(title,_format.format(multiplier*get_corp_loyalty_metrics(date_to,product,metric_id)),
+    '{:.2f}%'.format(get_corp_loyalty_metrics_rel_perf(date_from,date_to, product,metric_id)))
+    
 NO_DECIMAL = Decimal(10) ** -0
 
 v=[]
@@ -126,58 +142,53 @@ if  len(v)>0:
         prevDate = str(prev[0])+"/"+str(prev[1])
         spotReport = fetch_client_report(client,st.session_state["month_selected"],st.session_state["year_selected"])
         prevReport = fetch_client_report(client,prev[0],prev[1])
-        caa.PushReport(spotReport)
+        
+        spotMarketplaceReport = mm.MarketplaceReport.Load(9,2022)
+        
+        caa.PushReport(report=spotReport, marketplaceReport=spotMarketplaceReport)
         if prevReport!=0:
-            caa.PushReport(prevReport)
-
+            caa.PushReport(report=prevReport, marketplaceReport=spotMarketplaceReport)
         # AgGrid(caa.main_frame)
+        # AgGrid(caa.marketplace_margins)
+        # AgGrid(caa.marketplace_markups_det)
 
         # st.markdown("#### :zap:Dashboard")
 
-        ###### previous month not available
-        if prevReport==0:
-            st.markdown("##### 🩺Health Indicators")
-          
-            col1, col2, col3,col4 = st.columns(4)
-            col1.metric("Take Rate (basis points)",'{:.2f} bp'.format(get_lbms_metrics(spotDate,"take_rate")*10000))
-            col2.metric("Net Revenue Per MAU ($)",'{:.5f}'.format(get_lbms_metrics(spotDate,"net_revenue_per_active_user")))     
-            col3.metric("MAU Over TU",'{:.1f}%'.format(100*get_lbms_metrics(spotDate,"accrual_engagement_rate")))
-            col4.metric("Net Revenues ($)" , "{:,.0f}".format(get_lbms_metrics(spotDate,"net_revenues")))
-            st.markdown("""---""")
-            st.markdown("##### :computer:  Key Account Metrics")
-            
-            col1, col2, col3 = st.columns(3) 
-            col1.metric("Total Points Value ($)", "{:,.0f}".format(get_lbms_metrics(spotDate,"total_points")))
-            col2.metric("Total Users" , "{:,.0f}".format(get_lbms_metrics(spotDate,"total_users")))  
-            col3.metric("Monthly Active Users (MAU)", "{:,.0f}".format(get_lbms_metrics(spotDate,"active_users")))
-            
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Points Accrued Value ($)", "{:,.0f}".format(get_lbms_metrics(spotDate,"points_accrued")))
-            col2.metric("Points Redeemed Value ($)",  "{:,.0f}".format((get_lbms_metrics(spotDate,"points_redeemed"))))
-            col3.metric("GMV ($)" , "{:,.0f}".format(get_lbms_metrics(spotDate,"accrual_gmv")))
-            
-        # ###### previous month is available
-        else:
-            st.markdown("##### 🩺Health Indicators")
-            
-            col1, col2, col3,col4 = st.columns(4)
-            col1.metric("Take Rate (basis points)",'{:.2f} bp'.format(get_lbms_metrics(spotDate,"take_rate")*10000), '{:.2f}%'.format(get_lbms_metrics_rel_perf(prevDate,spotDate,"take_rate")*100))
-            col2.metric("Net Revenue Per MAU ($)",'{:.5f}'.format(get_lbms_metrics(spotDate,"net_revenue_per_active_user")), '{:.2f}%'.format(get_lbms_metrics_rel_perf(prevDate,spotDate,"net_revenue_per_active_user")*100))     
-            col3.metric("MAU Over TU",'{:.1f}%'.format(100*get_lbms_metrics(spotDate,"accrual_engagement_rate")), '{:.2f}%'.format(get_lbms_metrics_rel_perf(prevDate,spotDate,"accrual_engagement_rate")*100))
-            col4.metric("Net Revenues ($)" , "{:,.0f}".format(get_lbms_metrics(spotDate,"net_revenues")), '{:.2f}%'.format(get_lbms_metrics_rel_perf(prevDate,spotDate,"net_revenues")*100))
-            st.markdown("""---""")
-            st.markdown("##### :computer:Key Account Metrics")
-            
-            col1, col2, col3 = st.columns(3) 
-            col1.metric("Total Points Value ($)", "{:,.0f}".format(get_lbms_metrics(spotDate,"total_points")), '{:.2f}%'.format(get_lbms_metrics_rel_perf(prevDate,spotDate,"total_points")*100))
-            col2.metric("Total Users" , "{:,.0f}".format(get_lbms_metrics(spotDate,"total_users")), '{:.2f}%'.format(get_lbms_metrics_rel_perf(prevDate,spotDate,"total_users")*100))  
-            col3.metric("Monthly Active Users (MAU)", "{:,.0f}".format(get_lbms_metrics(spotDate,"active_users")), '{:.2f}%'.format(get_lbms_metrics_rel_perf(prevDate,spotDate,"active_users")*100))
-            
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Points Accrued Value ($)", "{:,.0f}".format(get_lbms_metrics(spotDate,"points_accrued")), '{:.2f}%'.format(get_lbms_metrics_rel_perf(prevDate,spotDate,"points_accrued")*100))
-            col2.metric("Points Redeemed Value ($)",  "{:,.0f}".format((get_lbms_metrics(spotDate,"points_redeemed"))), '{:.2f}%'.format(get_lbms_metrics_rel_perf(prevDate,spotDate,"points_redeemed")*100))
-            col3.metric("GMV ($)" , "{:,.0f}".format(get_lbms_metrics(spotDate,"accrual_gmv")), '{:.2f}%'.format(get_lbms_metrics_rel_perf(prevDate,spotDate,"accrual_gmv")*100))
+        col1, col2 = st.columns(2)
+        col1.header(spotReport.client_code)
+        col2.metric("Total Net Revenue","$ 123,000")
+        
+        st.markdown("#### 🚀 Key Performance Indicators")  
+        col1, col2, col3,col4,col5 = st.columns(5)
+        col1.markdown(" ##### 🤝LBMS")
+        write_metric(col5,"Take Rate",'{:.2f} bp',10000,"LBMS","take_rate",prevDate,spotDate)
+        write_metric(col3,"Net Revenue / MAU",'$ {:.3f}',1,"LBMS","net_revenue_per_active_user",prevDate,spotDate)
+        write_metric(col4,"MAU Over TU",'{:.1f}%',100,"LBMS","accrual_engagement_rate",prevDate,spotDate)
+        write_metric(col2,"Net Revenues","$ {:,.0f}",1,"LBMS","net_revenues",prevDate,spotDate)
 
+        col1, col2, col3,col4,col5 = st.columns(5)
+        col1.markdown(" ##### 🛍️Marketplace")
+        write_metric(col2,"Take Rate",'{:.2f} bp',10000,"LBMS","take_rate",prevDate,spotDate)
+        write_metric(col3,"Net Revenues","$ {:,.0f}",1,"LBMS","net_revenues",prevDate,spotDate)
+
+        col1, col2, col3,col4,col5 = st.columns(5)
+        col1.markdown(" ##### 🎁GiiftBox")
+        write_metric(col2,"Take Rate",'{:.2f} bp',10000,"LBMS","take_rate",prevDate,spotDate)
+        write_metric(col3,"Net Revenue / MAU",'$ {:.3f}',1,"LBMS","net_revenue_per_active_user",prevDate,spotDate)
+
+        
+        st.markdown("""---""")
+        st.markdown("##### :computer:  Key Account Metrics")
+        col1, col2, col3 = st.columns(3) 
+        write_metric(col1,"Total Points Value ","$ {:,.0f}k",Decimal(0.001),"LBMS","total_points",prevDate,spotDate)
+        write_metric(col2,"Total Users", "{:,.0f}k",Decimal(0.001),"LBMS","total_users",prevDate,spotDate)
+        write_metric(col3,"Monthly Active Users (MAU)", "{:,.0f}k",Decimal(0.001),"LBMS","active_users",prevDate,spotDate)  
+        col1, col2, col3 = st.columns(3)
+        write_metric(col1,"Points Accrued Value", "$ {:,.0f}",1,"LBMS","points_accrued",prevDate,spotDate)
+        write_metric(col2,"Points Redeemed Value", "$ {:,.0f}",1,"LBMS","points_redeemed",prevDate,spotDate)
+        write_metric(col3,"GMV", "$ {:,.0f}M",Decimal(0.000001),"LBMS","accrual_gmv",prevDate,spotDate)
+
+       
         st.markdown("""---""")
         st.subheader("	💲Revenues")
         rev_df = caa.revenue_frame[caa.revenue_frame["Date"]==spotDate]
@@ -226,7 +237,7 @@ if  len(v)>0:
             )
 
             fig2 = px.sunburst(net_rev_df[["Business Line","Product","Revenue Type", "Net Amount ($)"]], path=['Product', 'Revenue Type'], values="Net Amount ($)",
-            color="Revenue Type", hover_data=["Net Amount ($)"],height=400,width=500,title="Products & Revenue Type Net Revenues")
+            color="Product", hover_data=["Net Amount ($)"],height=400,width=500,title="Products & Revenue Type Net Revenues")
            
             col1, col2 = st.columns(2)
             col1.plotly_chart(fig1)
@@ -367,6 +378,7 @@ if  len(v)>0:
                     mode="lines"          
                 ),row=row, col=col
             )
+        spotMarketplaceReport = mm.MarketplaceReport.Load(9,2022)
 
 
         upToDate = datetime.datetime(int(st.session_state["year_selected"]),int(st.session_state["month_selected"]),1)
@@ -379,7 +391,7 @@ if  len(v)>0:
             dateT = datetime.datetime(int(toks[1]),int(toks[0]),1)
             if dateT <= upToDate:
                 report=fetch_client_report(client,month,year)
-                caa.PushReport(report)
+                caa.PushReport(report,spotMarketplaceReport)
 
         # AgGrid(caa.main_frame)
 

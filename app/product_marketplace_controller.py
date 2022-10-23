@@ -5,7 +5,7 @@ import time
 import traceback
 import requests
 import boto3
-from marketplace_model import MarketplaceReport, MarketplaceTransaction
+from product_marketplace_model import MarketplaceReport, MarketplaceTransaction
 from boto3.dynamodb.conditions import Key
 from decimal import Decimal
 
@@ -38,15 +38,6 @@ def BuildMarketplaceReport(month, year):
         # print(transactions[0])
         for transaction in transactions:
 
-            # supplier_name = transaction['SupplierName']
-            # supplier_currency = transaction['SupplierCurrencyCode']
-            # supplier_amount = transaction['SupplierTransactionAmount']
-            # margin = transaction['CalculatedMargin']
-
-            # client_currency = transaction['ClientCurrencyCode']
-            # client_amount = transaction['ClientTransactionAmount']
-            # client_code = transaction['ClientCode']
-
             tr = MarketplaceTransaction(
                 transaction['SupplierName'],
                 transaction['ClientCode'],
@@ -54,7 +45,8 @@ def BuildMarketplaceReport(month, year):
                 transaction['SupplierCurrencyCode'],
                 transaction['ClientTransactionAmount'],
                 transaction['SupplierTransactionAmount'],
-                transaction['CalculatedMargin']
+                transaction['CalculatedMargin'],
+                str(month)+"/"+str(year)
             )
             report.addTransaction(tr)
 

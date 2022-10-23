@@ -16,7 +16,7 @@ from revenue_model import RevenueItem
 import pandas as pd
 
 
-AGGREGATE_REPORTING_AWS = 'dra-client-aggregate-data'
+AGGREGATE_REPORTING_AWS = 'dra-products-lbms-data'
 
 class AccrualChannel(str,Enum):
     debit_card = "Debit Card"
@@ -134,19 +134,19 @@ class ProductMetrics:
 
 @dataclass_json
 @dataclass
-class ClientAggregateReport:
+class LBMSMonthlyData:
     client_code:str
     month:int
     year:int
-    product_metrics: ProductMetrics = ProductMetrics()
-    revenues: List[RevenueItem] = field(default_factory=list)
-    configuration: ClientConfiguration = field(default_factory=dict)
+    metrics: LBMSMetrics= LBMSMetrics()
+    # product_metrics: ProductMetrics = ProductMetrics()
+    # revenues: List[RevenueItem] = field(default_factory=list)
+    # configuration: ClientConfiguration = field(default_factory=dict)
  
     def GetPointsRedeemedByInternalCategory(self,cat):
-        return self.product_metrics.lbms_metrics.points_redeemed_per_internal_category[cat].sum
+        return self.metrics.points_redeemed_per_internal_category[cat].sum
 
     def Save(self):
-
         s3_client = boto3.client('s3')
         key = self.client_code + "@"+str(self.month) + "@"+str(self.year)+".json"
         data = s3_client.put_object(Bucket=AGGREGATE_REPORTING_AWS, Key=key, Body=self.to_json())
@@ -158,7 +158,7 @@ class ClientAggregateReport:
         key = client_code+"@"+str(month)+"@"+str(year)+".json"
         data = s3_client.get_object(Bucket=AGGREGATE_REPORTING_AWS, Key=key)
         contents = data['Body'].read()
-        report = ClientAggregateReport.from_json(contents)
+        report = LBMSMonthlyData.from_json(contents)
         return report
 
     @staticmethod

@@ -15,8 +15,8 @@ import pandas as pd
 MARKETPLACE_DATA_AWS = 'dra-marketplace-data'
 
 
-MARGINS_FRAME_COLUMNS = ["Supplier", "Client", "Margin Amount", "Currency Code","Number Transactions", "Transactions Amount"]
-MARKUPS_DET_FRAME_COLUMNS =  ["Supplier", "Client", "Markup Amount", "Currency Code","Number Transactions", "Transactions Amount"]
+MARGINS_FRAME_COLUMNS = ["Supplier", "Client","Date", "Margin Amount", "Currency Code","Number Transactions", "Transactions Amount"]
+MARKUPS_DET_FRAME_COLUMNS =  ["Supplier", "Client","Date", "Markup Amount", "Currency Code","Number Transactions", "Transactions Amount"]
 
 
 @dataclass
@@ -28,6 +28,7 @@ class MarketplaceTransaction:
     client_amount:Decimal
     product_amount:Decimal
     margin_amount:Decimal
+    date:str
 
 
 @dataclass
@@ -41,7 +42,7 @@ class MarketplaceReport:
 
 
     def addTransaction(self,tr):
-
+        
          # temp fix the margin amount being str not Decimal
         if isinstance(tr.margin_amount,str):
             tr.margin_amount = Decimal(tr.margin_amount)
@@ -54,6 +55,7 @@ class MarketplaceReport:
             items.append({
                 "Supplier":tr.supplier,
                 "Client": tr.client,
+                "Date": tr.date,
                 "Margin Amount":tr.margin_amount,
                 "Currency Code":tr.product_ccy,
                 "Number Transactions":1,
@@ -83,6 +85,7 @@ class MarketplaceReport:
                     items.append({
                         "Supplier":tr.supplier,
                         "Client": tr.client,
+                        "Date": tr.date,
                         "Markup Amount":markup,
                         "Currency Code":tr.product_ccy,
                         "Number Transactions":1,

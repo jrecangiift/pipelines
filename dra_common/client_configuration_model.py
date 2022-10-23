@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from typing import Dict,List
 from revenue_model import RevenueClassification
-
+import pandas as pd
 
 CLIENT_CONFIG_BUCKET = 'dra-config'
 
@@ -26,6 +26,12 @@ class LBMSConfiguration:
     local_ccy: str = "USD"
     point_value_to_local_ccy: Decimal = Decimal(1)
     include_comms :Boolean = False
+
+@dataclass_json
+@dataclass
+class MarketplaceConfiguration:
+    marketplace_code:str = ""
+    # other stuff to come like percentage of margin kickback
 
 
 @dataclass_json
@@ -94,21 +100,96 @@ class ClientRevenuesDeclaration:
 class ClientConfiguration:
     
     client_code: str
+    
     lbms_configuration: LBMSConfiguration
+    marketplace_configuration: MarketplaceConfiguration
+    
     products: List[str] = field(default_factory=list)
+    
     revenues:ClientRevenuesDeclaration = ClientRevenuesDeclaration()
    
 
 
 
+@dataclass
+class ClientConfigurationManager:
+    client_files_dataframe: pd.DataFrame = pd.DataFrame(columns=['Client','Valid_to','Key'])
 
-def LoadClientConfig(client_code):
+
+    def Init(self):
+        s3_client = boto3.client('s3')
+        files = s3_client.list_objects_v2(Bucket=CLIENT_CONFIG_BUCKET)
+        files_json = files['Contents']
+        files = map(lambda f: f['Key'],files_json)
+        client_files = filter(lambda f: f.startswith("clients/") and len(f.split('/'))==3 and f.endswith(".json"),files)
+        
+        items = []
+        for file in client_files:
+            tokens = file.split("/")
+            client = tokens[1]
+            f_name = tokens[2]
+            if '#' in f_name:
+                tok = f_name.split('#')
+                validity = tok[1]
+                f_token= validity.replace('.json','').split('_')
+                items.append({'Client':client, 'Valid_to':f_token[0]+'/'+f_token[1],'Key':file})
+            else:
+                items.append({'Client':client, 'Valid_to':'Current','Key':file})
+            
+    
+        self.client_files_dataframe = pd.DataFrame(items,columns=['Client','Valid_to','Key'])
+
+    def LoadConfig(self,client,month,year):
+        df = self.client_files_dataframe[self.client_files_dataframe['Client']==client]
+        # validList = df['Valid_to'].tolist()
+        month=int(month)
+        year = int(year)
+        df =df.set_index('Valid_to')
+        valid_list = df.index.tolist()
+
+
+        selected_index = 'Current'
+        selected_month = 1
+        selected_year = 3000
+        for valid in valid_list:
+            if valid == 'Current':
+                continue
+            else:
+  
+                tok = valid.split("/")
+                stamp_month = int(tok[0])
+                stamp_year = int(tok[1])
+                if _isOnOrBefore(month,year,stamp_month, stamp_year) and _isOnOrBefore(stamp_month,stamp_year,selected_month,selected_year):
+                    selected_month=stamp_month
+                    selected_year=stamp_year
+                    selected_index = str(selected_month)+'/'+str(selected_year) 
+
+        key = df.at[selected_index,'Key']
+        return _loadClientConfig(client,key)
+
+def _loadClientConfig(client_code,key):
 
     s3_client = boto3.client('s3')
-    key = client_code+".json"
     data = s3_client.get_object(Bucket=CLIENT_CONFIG_BUCKET, Key=key)
     contents = data['Body'].read()
     return ClientConfiguration.from_json(contents)
+    
+
+def _isOnOrBefore(month, year, comp_month, comp_year):
+    if year < comp_year:
+        return True
+    if year <= comp_year:
+        if month<= comp_month:
+            return True
+        else:
+            return False
+    else:
+        return False    
+
+                
+
+
+
 
 def WriteClientConfig(client_config):
 
