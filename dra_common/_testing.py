@@ -79,32 +79,67 @@ def MakeConfigfileSample():
 
 config_manager = ClientConfigurationManager()
 config_manager.Init()
+clients = [
+    'BDI',
+    "BJB",
+    "BML",
+    "BNI",
+    "BRI",
+    "CBI",
+    "CBQ",
+    "commbank",
+    "EBL",
+    "GBK",
+    "QNB",
+    ]
+
 months = [4,5,6,7,8,9]
 
-# for m in months:
-#     print(m)
-#     config = config_manager.LoadConfig('BNI',m,2022)
-#     lbms_data = BuildMonthlyLBMSData('BNI',m,2022)
+for c in clients:
+    for m in months:
+        print(c + "/" + str(m))
+        # config = config_manager.LoadConfig('BDI',m,2022)
+        try:
+            lbms_data = BuildMonthlyLBMSData(c,m,2022)
+        except:
+            continue
 
-cl_analytics = ClientsAnalytics()
+
+# lbms_data = BuildMonthlyLBMSData('BJB',4,2022)
 
 
-config = config_manager.LoadConfig('BNI',6,2022)
-lbms_data = LBMSMonthlyData.Load('BNI',6,2022)
-cl_analytics.push_lbms_data(config,lbms_data)
+# cl_analytics = ClientsAnalytics()
 
-config = config_manager.LoadConfig('BNI',7,2022)
-lbms_data = LBMSMonthlyData.Load('BNI',7,2022)
-cl_analytics.push_lbms_data(config,lbms_data)
+# config = config_manager.LoadConfig('CBI',7,2022)
+# lbms_data = LBMSMonthlyData.Load('CBI',7,2022)
+# cl_analytics.push_lbms_data(config,lbms_data)
 
-config = config_manager.LoadConfig('BNI',9,2022)
-lbms_data = LBMSMonthlyData.Load('BNI',9,2022)
-cl_analytics.push_lbms_data(config,lbms_data)
+# print(cl_analytics.revenue_frame)
 
-mktplace_data = MarketplaceReport.Load(9,2022)
-cl_analytics.push_marketplace_data(config,mktplace_data)
 
-print(cl_analytics.main_frame)
+
+
+
+
+
+
+
+
+
+
+
+# config = config_manager.LoadConfig('BNI',7,2022)
+# lbms_data = LBMSMonthlyData.Load('BNI',7,2022)
+# cl_analytics.push_lbms_data(config,lbms_data)
+
+# config = config_manager.LoadConfig('BNI',9,2022)
+# lbms_data = LBMSMonthlyData.Load('BNI',9,2022)
+# cl_analytics.push_lbms_data(config,lbms_data)
+
+# mktplace_data = MarketplaceReport.Load(9,2022)
+# cl_analytics.push_marketplace_data(config,mktplace_data)
+
+# print(cl_analytics.main_frame)
 
 
 # lbms_data = LBMSMonthlyData.Load('BNI',6,2022)
@@ -139,7 +174,7 @@ print(cl_analytics.main_frame)
 
 
 # client_list = ['BNI','BDI','BRI']
-# date_list = ['5/2022','6/2022','7/2022','8/2022','9/2022']
+# date_list = ['',5/2022','6/2022','7/2022','8/2022','9/2022']
 # ClientsAggregateAnalytics
 
 

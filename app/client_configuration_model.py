@@ -88,12 +88,22 @@ class FloatRevenues:
     min_max_linear: List[FloatMinMaxLinearRevenue] = field(default_factory=list)
     #add caps and floors
 
+
+@dataclass_json
+@dataclass
+class RedemptionPerOptionRevenues:
+    classification: RevenueClassification = RevenueClassification()
+    currency_code:str = ""
+    cost_and_fee_betas_per_option: Dict[str,List[Decimal]] = field(default_factory=Dict)
+
+
 @dataclass_json
 @dataclass
 class ClientRevenuesDeclaration:
     recurring_fixed_revenues:List[RecurringFixedRevenue] = field(default_factory=list) 
     recurring_float_revenues:FloatRevenues = FloatRevenues()
     single_fixed_revenues:List[SingleFixedRevenue]= field(default_factory=list)
+    redemption_per_option_revenues: List[RedemptionPerOptionRevenues] = field(default_factory=list)
 
 @dataclass_json
 @dataclass

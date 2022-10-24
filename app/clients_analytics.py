@@ -32,7 +32,7 @@ REVENUE_COLUMNS = ["Client","Date","Business Line","Product","Revenue Type","Gro
 ##################################################
 
 #### LBMS DATA FRAMES ############################
-ACCRUALS_COLUMNS = ["Client","Date","Channel","Product","Points Accrued ($)", "GMV ($)", "Points Expired ($)"]
+ACCRUALS_COLUMNS = ["Client","Date","Channel","Product","Points Accrued","Points Accrued ($)", "GMV ($)", "Points Expired ($)"]
 REDEMPTION_COLUMNS = ["Client","Date","Redemption Option","Points Redeemed","Points Redeemed ($)","Number Transactions"]
 USERS_POINTS_COLUMNS = ["Client","Date","Points Value Threashold ($)","Number Users","Points Value ($)"]
 ##################################################
@@ -48,8 +48,6 @@ MARKUPS_COLUMNS = mm.MARKUPS_DET_FRAME_COLUMNS.append(["Margin ($)", "Transactio
 @dataclass_json
 @dataclass
 class ClientsAnalytics:
-
-    
 
     main_frame: pd.DataFrame = pd.DataFrame(columns=MAIN_FRAME_COLUMNS)
     revenue_frame:pd.DataFrame = pd.DataFrame(columns=REVENUE_COLUMNS)
@@ -84,35 +82,6 @@ class ClientsAnalytics:
         self.marketplace_calculate_revenues(client_config,month,year)
 
         self.marketplace_finalize_metrics(client_config,month,year)
-
-
-
-        #         # calculate metrics and revenues - no config at the moment - vanilla
-
-        #         # Marketplace Revenues
-
-       
-        #         # Key marketplace metrics
-
-        #         ])
-
-
-        #     except:
-        #         raise Exception("Could not process the marketplace report")
-
-        #     # here we basically filter on marketplace client code at source, then replace with client code.
-
-            
-
-        # Process Other Products / Feeds
-
-
-            
-
-
-            
-
-
 
 
 
@@ -163,9 +132,11 @@ class ClientsAnalytics:
             df = self.lbms_redemptions
             return df[(df['Client']==client) & (df['Date']==date) & (df['Redemption Option']==argument)]["Points Redeemed"].sum()   
 
+        if func == "points_accrued":
+            return self.GetMetrics(client,date,"Corporate Loyalty","LBMS","points_accrued")      
+
         if func == "all_points_redeemed":
-            df = self.lbms_redemptions
-            return df[(df['Client']==client) & (df['Date']==date)]["Points Redeemed"].sum()   
+            return self.GetMetrics(client,date,"Corporate Loyalty","LBMS","points_redeemed")   
 
         if func == "accrual_active_users":
             return self.GetMetrics(client,date,"Corporate Loyalty","LBMS","accrual_active_users")
@@ -215,6 +186,7 @@ class ClientsAnalytics:
                             "Date":date,
                             "Channel":channel.value,
                             "Product":product.product_code,
+                            "Points Accrued":product.points_accrued,
                             "Points Accrued ($)":fx.point_to_cst_usd(product.points_accrued),
                             "GMV ($)":fx.local_to_cst_usd(product.gmv),
                             "Points Expired ($)":fx.point_to_cst_usd(product.points_expired)
@@ -323,7 +295,7 @@ class ClientsAnalytics:
                 cl.tags["variability"] = "float"
                
                 index_value = self.get_pricing_index_value(client,date,dec.index)
-                base_amount = Decimal(dec.alpha) + Decimal(dec.beta) * index_value
+                base_amount = Decimal(dec.alpha) + Decimal(dec.beta) * Decimal(index_value)
 
                 rev_items.append(
                 {
@@ -348,7 +320,7 @@ class ClientsAnalytics:
                 cl.tags["variability"] = "float"
                 
                 index_value = self.get_pricing_index_value(client,date,dec.index)
-                linear_piece = Decimal(dec.alpha) + Decimal(dec.beta) * index_value
+                linear_piece = Decimal(dec.alpha) + Decimal(dec.beta) * Decimal(index_value)
                 
                 base_amount = linear_piece
                 if dec.has_min and linear_piece <dec.min:
@@ -372,6 +344,52 @@ class ClientsAnalytics:
                     "Label": dec.label
                 })
 
+
+         # special revenue declaration scheme to make the redemption options more practical
+        for dec in client_config.revenues.redemption_per_option_revenues:        
+            cl = dec.classification
+            if cl.product_line == "LBMS":
+                cl.tags["frequency"] = "monthly"
+                cl.tags["variability"] = "float"
+                
+                for option in dec.cost_and_fee_betas_per_option.keys():
+                    betas = dec.cost_and_fee_betas_per_option[option]
+
+                    index = self.get_pricing_index_value(client,date,"points_redeemed."+option)
+                    cost = Decimal(betas[0]) * Decimal(index)
+                    fee = Decimal(betas[1]) * Decimal(index)
+                
+                    rev_items.append(
+                    {
+                        "Client":client_config.client_code,
+                        "Date":str(month)+'/'+str(year),
+                        "Business Line":cl.business_line.value,
+                        "Product":cl.product_line.value,
+                        "Revenue Type":"redemption_cost",
+                        "Gross Amount ($)":fx.ccy_to_cst_usd(cost, dec.currency_code),
+                        "Net Amount ($)":0,
+                        "Base Amount":cost,
+                        "Base Currency":dec.currency_code,
+                        "All Tags":cl.tags,
+                        "Net Offset":Decimal('1'),
+                        "Label": "Redemption Cost - "+option
+                    })
+
+                    rev_items.append(
+                    {
+                        "Client":client_config.client_code,
+                        "Date":str(month)+'/'+str(year),
+                        "Business Line":cl.business_line.value,
+                        "Product":cl.product_line.value,
+                        "Revenue Type":"redemption_fee",
+                        "Gross Amount ($)":fx.ccy_to_cst_usd(fee, dec.currency_code),
+                        "Net Amount ($)":fx.ccy_to_cst_usd(fee, dec.currency_code),
+                        "Base Amount":fee,
+                        "Base Currency":dec.currency_code,
+                        "All Tags":cl.tags,
+                        "Net Offset":Decimal('0'),
+                        "Label": "Redemption Fee - "+option
+                    })
                 
         df_rev = pd.DataFrame(rev_items,columns=REVENUE_COLUMNS)
         self.revenue_frame = pd.concat([self.revenue_frame,df_rev])

@@ -16,7 +16,7 @@ from revenue_model import RevenueItem
 import pandas as pd
 
 
-AGGREGATE_REPORTING_AWS = 'dra-products-lbms-data'
+LBMS_DATA_BUCKET = 'dra-products-lbms-data'
 
 class AccrualChannel(str,Enum):
     debit_card = "Debit Card"
@@ -26,19 +26,28 @@ class AccrualChannel(str,Enum):
     investment = "Investment"
     lending = "Lending"
     e_channels = "E-Channels"
+    wealth_management = "Wealth Management"
     unknown = "Unknown"
+    manual = "Manual"
 
 class RedemptionOption(str,Enum):
     gift_card = "Gift Card"
     utility = "Utility"
     exchange = "Points Exchange"
     travel = "Travel"
+    flight = "Flight"
+    hotel = "Hotel"
+    car = "Car"
     shop = "Shop"
     charity = "Charity"
+    cashback = "CashBack"
     unknown = "Unknown"
     cancelled = "Cancelled"
     game = "Game"
     auction = "Auction"
+    external = "External Redemption"
+    clients_merchant = "Client Merchant"
+    reversal = "Reversal"
 
 @dataclass_json
 @dataclass
@@ -149,14 +158,14 @@ class LBMSMonthlyData:
     def Save(self):
         s3_client = boto3.client('s3')
         key = self.client_code + "@"+str(self.month) + "@"+str(self.year)+".json"
-        data = s3_client.put_object(Bucket=AGGREGATE_REPORTING_AWS, Key=key, Body=self.to_json())
+        data = s3_client.put_object(Bucket=LBMS_DATA_BUCKET, Key=key, Body=self.to_json())
         return data
 
     @staticmethod
     def Load(client_code, month, year):
         s3_client = boto3.client('s3')
         key = client_code+"@"+str(month)+"@"+str(year)+".json"
-        data = s3_client.get_object(Bucket=AGGREGATE_REPORTING_AWS, Key=key)
+        data = s3_client.get_object(Bucket=LBMS_DATA_BUCKET, Key=key)
         contents = data['Body'].read()
         report = LBMSMonthlyData.from_json(contents)
         return report
@@ -164,7 +173,7 @@ class LBMSMonthlyData:
     @staticmethod
     def ListAll():
         s3_client = boto3.client('s3')
-        files = s3_client.list_objects_v2(Bucket=AGGREGATE_REPORTING_AWS)
+        files = s3_client.list_objects_v2(Bucket=LBMS_DATA_BUCKET)
         data = {}
         if (files['KeyCount']>0):
             files_json = files['Contents']

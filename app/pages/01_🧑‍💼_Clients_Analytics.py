@@ -1,7 +1,7 @@
 
-from cmath import nan
+from cmath import log, nan
 from curses import meta
-from turtle import title
+from turtle import title, width
 import streamlit as st
 import datetime
 import sys
@@ -9,14 +9,21 @@ from decimal import Decimal
 from common import GetPreviousMonth,CLIENT_REGIONAL_CONFIG, GetClientMapDataFrame
 from st_aggrid import AgGrid, GridUpdateMode, GridOptionsBuilder, DataReturnMode
 import plotly.express as px
-import client_aggregate_model as cam
+import logging as lg
+from PIL import Image
 from fx_conversion import FXConverter
-from client_aggregate_model import LBMSMetrics
-from client_aggregate_analytics import ClientsAggregateAnalytics
-import marketplace_model as mm
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import traceback
 
+from product_lbms_model import LBMSMonthlyData
+from clients_analytics import ClientsAnalytics
+from client_configuration_model import ClientConfigurationManager,ClientConfiguration
+from product_marketplace_model import MarketplaceReport
+
+from st_aggrid import JsCode
+import warnings 
+warnings.filterwarnings('ignore')
 
 st.set_page_config(layout="wide")
 from styling import k_sep_formatter
@@ -30,16 +37,54 @@ if 'active' not in st.session_state:
 prev_loaded = False
 NO_DECIMAL = Decimal(10) ** -0
 THREE_DECIMAL = Decimal(10) ** -3
-@st.cache
-def fetch_client_reports_list():
-    return cam.ClientAggregateReport.ListAll()
 
-@st.cache
-def fetch_client_report(client_code, month,year):
-    try:
-        return cam.ClientAggregateReport.Load(client_code, month,year)
-    except:
-        return 0
+
+@st.experimental_memo
+def fetch_client_config(config_manager,client,month,year):
+    return config_manager.LoadConfig(client,month,year)
+
+@st.experimental_memo
+def fetch_lbms_data(client,month,year):
+    return LBMSMonthlyData.Load(client,month,year)
+
+@st.experimental_memo
+def fetch_marketplace_data(month,year):
+    return MarketplaceReport.Load(month,year)
+
+@st.experimental_memo
+def fetch_config_manager():
+    config_manager = ClientConfigurationManager()
+    config_manager.Init()
+    return config_manager
+
+
+def push_to_analytics(analytics,client,month,year):
+    
+    config_manager = fetch_config_manager()
+    client_config = fetch_client_config(config_manager,client,month,year)
+
+    for product in client_config.products:
+        
+        if product =="LBMS":
+            try:
+                lbms_data = fetch_lbms_data(client,month,year)
+                analytics.push_lbms_data(client_config,lbms_data)
+            except:
+                traceback.print_exc()
+                lg.warning("LBMS Data Unavailable for :"+client+" - "+ str(month) + "/"+ str(year))
+                
+        if product =="Marketplace":
+            try:
+                #ack until marketplace data become available
+                marketplace_data = fetch_marketplace_data(9,2022)
+                marketplace_data.month=month
+                marketplace_data.year=year
+                analytics.push_marketplace_data(client_config,marketplace_data)
+            except:
+                lg.warning("Marketplace Data Unavailable for :"+str(month) + "/"+ str(year))
+
+    
+
 
 def dateFunc(s):
     toks = s.split("/")
@@ -50,48 +95,74 @@ def format_date(s):
     toks = s.split("/")
     return datetime.date(int(toks[1]),int(toks[0]),1).strftime('%B %Y')
 
-# relies on global variables being set correctly:
-# client & caa
-def get_lbms_metrics(date,identifier):
-    return caa.GetMetrics(client, date,"Corporate Loyalty","LBMS",identifier)
+def get_lbms_metrics(analytics,date,identifier):
+    return analytics.GetMetrics(client, date,"Corporate Loyalty","LBMS",identifier)
+
+def get_lbms_metrics_rel_perf(analytics,date_from,date_to,identifier):
+    return analytics.GetMetricsRelativePerf(client, date_from,date_to,"Corporate Loyalty","LBMS",identifier)
 
 
-def get_lbms_metrics_rel_perf(date_from,date_to,identifier):
-    return caa.GetMetricsRelativePerf(client, date_from,date_to,"Corporate Loyalty","LBMS",identifier)
-
-
-def get_corp_loyalty_metrics(date,product,identifier):
-    return caa.GetMetrics(client, date,"Corporate Loyalty",product,identifier)
-    
-def get_corp_loyalty_metrics_rel_perf(date_from,date_to,product,identifier):
+def get_corp_loyalty_metrics(analytics,date,product,identifier):
     try:
-        return caa.GetMetricsRelativePerf(client, date_from,date_to,"Corporate Loyalty",product,identifier)
+        return analytics.GetMetrics(client, date,"Corporate Loyalty",product,identifier)
+    except:
+        return nan
+    
+def get_corp_loyalty_metrics_rel_perf(analytics,date_from,date_to,product,identifier):
+    try:
+        return analytics.GetMetricsRelativePerf(client, date_from,date_to,"Corporate Loyalty",product,identifier)
     except:
         return nan
 
-def write_metric(elem, title, _format, multiplier, product, metric_id, date_from, date_to):
-    elem.metric(title,_format.format(multiplier*get_corp_loyalty_metrics(date_to,product,metric_id)),
-    '{:.2f}%'.format(get_corp_loyalty_metrics_rel_perf(date_from,date_to, product,metric_id)))
-    
-NO_DECIMAL = Decimal(10) ** -0
+def write_metric(analytics,elem, title, _format, multiplier, product, metric_id, date_from, date_to):
+    elem.metric(title,_format.format(multiplier*get_corp_loyalty_metrics(analytics,date_to,product,metric_id)),
+    '{:.2f}%'.format(get_corp_loyalty_metrics_rel_perf(analytics,date_from,date_to, product,metric_id)))
 
-v=[]
-response={}
-def updateClient():
-    v=response['selected_rows']
-    st.session_state["selected_client"]=v[0]["Client"]
+def client_updated(s):
+    print("updated")
 
+def add_line_trace(fig,df,row,col):
+    fig.add_trace(
+        go.Scatter(
+            x=df["Date"],
+            y=df["Value"],
+            mode="lines"          
+        ),row=row, col=col
+    )
+
+
+
+### Build the date list with x look_back
+now = datetime.datetime.today()
+lookback_in_months = 6
+
+list_of_dates = []
+currentMonth = now.month
+currentYear = now.year
+for m in range(lookback_in_months):
+    prev = GetPreviousMonth(currentMonth,currentYear)
+    currentMonth = prev[0]
+    currentYear = prev[1]
+    list_of_dates.append(str(currentMonth)+'/'+str(currentYear))
+list_of_dates.sort(key=dateFunc)
+firstDate = list_of_dates[0]
 
 df_client_map = GetClientMapDataFrame()
 with st.sidebar:
 
-    col1, col2 = st.sidebar.columns(2)
-
+    date_selected = st.sidebar.selectbox("Pick Date",list_of_dates, index = len(list_of_dates)-1, label_visibility="collapsed", format_func=format_date)
+    toks = date_selected.split("/")
+    st.session_state["month_selected"]=toks[0]
+    st.session_state["year_selected"]=toks[1]
    
     gb = GridOptionsBuilder.from_dataframe(df_client_map)
     gb.configure_selection(selection_mode="single", use_checkbox=False, header_checkbox=False)
+    gb.configure_column("Region",rowGroup=True,hide=True, rowGroupIndex= 0)
+    gb.configure_column("Live",hide=True )
+    gb.configure_column("Logo",hide=True)
+    gb.configure_column("Name",hide=True)
     gridoptions = gb.build()
-
+    
     response = AgGrid(
         df_client_map,
         gridOptions=gridoptions,
@@ -101,104 +172,128 @@ with st.sidebar:
         data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
         fit_columns_on_grid_load=True,
         header_checkbox_selection_filtered_only=False,
-        use_checkbox=False,
-        onclick=updateClient)
-
+        allow_unsafe_jscode=True,
+        use_checkbox=False)
     v = response['selected_rows']
     if len(v)>0:
-        client_selected = v[0]["Client"]
- 
-        st.session_state["client_selected"] = client_selected
-
+        if "Client" in v[0].keys():
+            client_selected = v[0]["Client"]
+            st.session_state["client_selected"] = client_selected
+    
+    if st.sidebar.button("Clear Cache"):
+        st.experimental_memo.clear()
 # No client selected yet
 if  len(v)==0:
-    st.markdown("#### Select A Client ...")
+    st.markdown("#### Select a client ...")
+
+elif not v[0]["Live"]:
+    st.markdown("#### Reporting not live yet for "+ v[0]["Name"])
 
 # Client is selected - run report script
-if  len(v)>0:    
-    st.session_state["active"]=True
-    aggregate = fetch_client_reports_list()
-    ds= (aggregate.loc[st.session_state["client_selected"]])
-    ds=ds.dropna()
+if  len(v) and v[0]["Live"]>0:  
 
-    dateList = (ds.keys().tolist())
-    dateList.sort(key=dateFunc)
-    c1,c2 = st.columns([1,5])
-    date_selected = st.sidebar.selectbox(st.session_state["client_selected"],dateList, index = len(dateList)-1, label_visibility="collapsed", format_func=format_date)
-    toks = date_selected.split("/")
-    st.session_state["month_selected"]=toks[0]
-    st.session_state["year_selected"]=toks[1]
-    if st.sidebar.button("Clear Cache"):
-        st.runtime.legacy_caching.clear_cache()
-    
     monthlyReporting, overTime, tabExperimental = st.tabs(["Monthly Report", "Over Time", "Performance"])
     
     with monthlyReporting:
 
-        caa = ClientsAggregateAnalytics()
-        prev = GetPreviousMonth(int(st.session_state["month_selected"]),int(st.session_state["year_selected"]))
+        analytics = ClientsAnalytics()
+        
+
+
         client = st.session_state["client_selected"]
-        spotDate = st.session_state["month_selected"]+"/"+st.session_state["year_selected"]
-        prevDate = str(prev[0])+"/"+str(prev[1])
-        spotReport = fetch_client_report(client,st.session_state["month_selected"],st.session_state["year_selected"])
-        prevReport = fetch_client_report(client,prev[0],prev[1])
-        
-        spotMarketplaceReport = mm.MarketplaceReport.Load(9,2022)
-        
-        caa.PushReport(report=spotReport, marketplaceReport=spotMarketplaceReport)
-        if prevReport!=0:
-            caa.PushReport(report=prevReport, marketplaceReport=spotMarketplaceReport)
-        # AgGrid(caa.main_frame)
-        # AgGrid(caa.marketplace_margins)
-        # AgGrid(caa.marketplace_markups_det)
+        month = st.session_state["month_selected"]
+        year = st.session_state["year_selected"]
 
-        # st.markdown("#### :zap:Dashboard")
-
-        col1, col2 = st.columns(2)
-        col1.header(spotReport.client_code)
-        col2.metric("Total Net Revenue","$ 123,000")
         
-        st.markdown("#### 🚀 Key Performance Indicators")  
+        spot_client_config = fetch_client_config(fetch_config_manager(),client,month,year)
+        spot_products = spot_client_config.products
+        # Load Client Config and loop on products
+        
+        push_to_analytics(analytics,client,month,year)
+
+        prev = GetPreviousMonth(int(st.session_state["month_selected"]),int(st.session_state["year_selected"]))
+        prev_month = prev[0]
+        prev_year = prev[1]
+
+        push_to_analytics(analytics,client,prev_month,prev_year)
+
+        spotDate = str(month)+"/"+str(year)
+        prevDate = str(prev_month)+"/"+str(prev_year)
+        
+        # Name and Top line
+        col1, col2,col3 = st.columns([1,2,1])
+        net_top_line = 0
+        try:
+            image = Image.open('assets/'+v[0]["Logo"])
+        except:
+            image = Image.open('assets/Giift.png')
+        col1.image(image, width=150)
+        col2.header(v[0]["Name"])
+        
+        if "LBMS" in spot_products:
+            net_top_line += get_lbms_metrics(analytics,spotDate,"net_revenues")
+        if "LBMS" in spot_products:
+            net_top_line += get_corp_loyalty_metrics(analytics,spotDate,"Marketplace","net_revenues")
+        col3.metric("Total Monthly Net Revenue",'$ {:,.0f}'.format(net_top_line))
+        
+        # st.dataframe(analytics.main_frame)
+        # AgGrid(analytics.main_frame)
+
+        st.markdown("#### Key Performance Indicators")  
         col1, col2, col3,col4,col5 = st.columns(5)
-        col1.markdown(" ##### 🤝LBMS")
-        write_metric(col5,"Take Rate",'{:.2f} bp',10000,"LBMS","take_rate",prevDate,spotDate)
-        write_metric(col3,"Net Revenue / MAU",'$ {:.3f}',1,"LBMS","net_revenue_per_active_user",prevDate,spotDate)
-        write_metric(col4,"MAU Over TU",'{:.1f}%',100,"LBMS","accrual_engagement_rate",prevDate,spotDate)
-        write_metric(col2,"Net Revenues","$ {:,.0f}",1,"LBMS","net_revenues",prevDate,spotDate)
-
-        col1, col2, col3,col4,col5 = st.columns(5)
-        col1.markdown(" ##### 🛍️Marketplace")
-        write_metric(col2,"Take Rate",'{:.2f} bp',10000,"LBMS","take_rate",prevDate,spotDate)
-        write_metric(col3,"Net Revenues","$ {:,.0f}",1,"LBMS","net_revenues",prevDate,spotDate)
-
-        col1, col2, col3,col4,col5 = st.columns(5)
-        col1.markdown(" ##### 🎁GiiftBox")
-        write_metric(col2,"Take Rate",'{:.2f} bp',10000,"LBMS","take_rate",prevDate,spotDate)
-        write_metric(col3,"Net Revenue / MAU",'$ {:.3f}',1,"LBMS","net_revenue_per_active_user",prevDate,spotDate)
-
+        if "LBMS" in spot_products:
+            col1.markdown(" ##### 🤝LBMS")
+            write_metric(analytics,col5,"Take Rate",'{:.2f} bp',10000,"LBMS","take_rate",prevDate,spotDate)
+            write_metric(analytics,col3,"Net Revenue / MAU",'$ {:.3f}',1,"LBMS","net_revenue_per_active_user",prevDate,spotDate)
+            write_metric(analytics,col4,"Accrual Engagement Rate",'{:.1f}%',100,"LBMS","accrual_engagement_rate",prevDate,spotDate)
+            write_metric(analytics,col2,"Net Revenues","$ {:,.0f}",1,"LBMS","net_revenues",prevDate,spotDate)
         
+        col1, col2, col3,col4,col5 = st.columns(5)
+        if "Marketplace" in spot_products:
+            col1.markdown(" ##### 🛍️Marketplace")
+            write_metric(analytics,col2,"Net Revenues","$ {:,.0f}",1,"Marketplace","net_revenues",prevDate,spotDate)
+            write_metric(analytics,col3,"Transactions GMV",' $ {:,.0f}k',Decimal(0.001),"Marketplace","transactions_gmv",prevDate,spotDate)
+            write_metric(analytics,col4,"Margins Rate",' {:.2f}%',100,"Marketplace","margins_rate",prevDate,spotDate)
+            write_metric(analytics,col5,"Markups Rate",' {:.2f}%',100,"Marketplace","markups_rate",prevDate,spotDate)
+
+        col1, col2, col3,col4,col5 = st.columns(5)
+        if "GiiftBox" in spot_products:
+            col1.markdown(" ##### 🎁GiiftBox")
+            write_metric(analytics,col2,"Take Rate",'{:.2f} bp',10000,"LBMS","take_rate",prevDate,spotDate)
+            write_metric(analytics,col3,"Net Revenue / MAU",'$ {:.3f}',1,"LBMS","net_revenue_per_active_user",prevDate,spotDate)
+
+            
+        # st.markdown("""---""")
+        st.markdown("#### Product Metrics")
+        if "LBMS" in spot_products:
+            with st.expander("LBMS Metrics"):
+                col1, col2, col3 = st.columns(3) 
+                write_metric(analytics,col1,"Total Points Value ","$ {:,.0f}k",Decimal(0.001),"LBMS","total_points_std_usd",prevDate,spotDate)
+                write_metric(analytics,col2,"Total Users", "{:,.0f}k",Decimal(0.001),"LBMS","total_users",prevDate,spotDate)
+                write_metric(analytics,col3,"Monthly Active Users (MAU)", "{:,.0f}k",Decimal(0.001),"LBMS","accrual_active_users",prevDate,spotDate)  
+                col1, col2, col3 = st.columns(3)
+                write_metric(analytics,col1,"Points Accrued Value", "$ {:,.0f}",1,"LBMS","points_accrued_std_usd",prevDate,spotDate)
+                write_metric(analytics,col2,"Points Redeemed Value", "$ {:,.0f}",1,"LBMS","points_redeemed_std_usd",prevDate,spotDate)
+                write_metric(analytics,col3,"Accrual GMV", "$ {:,.0f}M",Decimal(0.000001),"LBMS","accrual_gmv",prevDate,spotDate)
+        
+        if "Marketplace" in spot_products:
+            with st.expander("Marketplace Metrics"):
+                col1, col2, col3 = st.columns(3)
+                write_metric(analytics,col1,"Transactions Count",'{:,.0f}',1,"Marketplace","transactions_count",prevDate,spotDate)
+                
+
+
         st.markdown("""---""")
-        st.markdown("##### :computer:  Key Account Metrics")
-        col1, col2, col3 = st.columns(3) 
-        write_metric(col1,"Total Points Value ","$ {:,.0f}k",Decimal(0.001),"LBMS","total_points",prevDate,spotDate)
-        write_metric(col2,"Total Users", "{:,.0f}k",Decimal(0.001),"LBMS","total_users",prevDate,spotDate)
-        write_metric(col3,"Monthly Active Users (MAU)", "{:,.0f}k",Decimal(0.001),"LBMS","active_users",prevDate,spotDate)  
-        col1, col2, col3 = st.columns(3)
-        write_metric(col1,"Points Accrued Value", "$ {:,.0f}",1,"LBMS","points_accrued",prevDate,spotDate)
-        write_metric(col2,"Points Redeemed Value", "$ {:,.0f}",1,"LBMS","points_redeemed",prevDate,spotDate)
-        write_metric(col3,"GMV", "$ {:,.0f}M",Decimal(0.000001),"LBMS","accrual_gmv",prevDate,spotDate)
-
-       
-        st.markdown("""---""")
-        st.subheader("	💲Revenues")
-        rev_df = caa.revenue_frame[caa.revenue_frame["Date"]==spotDate]
+        
+        st.markdown("#### 💵Revenues")
+        rev_df = analytics.revenue_frame[analytics.revenue_frame["Date"]==spotDate]
 
         with st.expander("Client Revenues"):
             # AgGrid(rev_df)
             st.markdown("""---""")
             col1, col2, = st.columns(2) 
-            col1.metric("Gross Revenues","$ {:,.0f}".format(get_lbms_metrics(spotDate,"gross_revenues")))
-            col2.metric("Net Revenues", "$ {:,.0f}".format(get_lbms_metrics(spotDate,"net_revenues")))
+            col1.metric("Gross Revenues","$ {:,.0f}".format(get_lbms_metrics(analytics,spotDate,"gross_revenues")))
+            col2.metric("Net Revenues", "$ {:,.0f}".format(get_lbms_metrics(analytics,spotDate,"net_revenues")))
             # st.markdown("""---""")
             net_rev_df= rev_df[rev_df['Net Amount ($)'] != 0]
             net_rev_df = net_rev_df[["Business Line","Product","Revenue Type","Net Amount ($)", "Label"]]
@@ -228,7 +323,7 @@ if  len(v)>0:
             
             fig1 = px.bar(net_rev_df, color="Revenue Type", x="Product",
              y="Net Amount ($)",
-             title="A Grouped Bar Chart With Plotly Express in Python",
+             title="Revenues Per Product and Type",
              barmode='group',
              height=400,
              width=500,
@@ -246,7 +341,7 @@ if  len(v)>0:
         st.markdown("#### :arrow_heading_up:Accruals")
 
         # AgGrid(caa.lbms_accruals)
-        df_acc = caa.lbms_accruals[caa.lbms_accruals["Date"]==spotDate]
+        df_acc = analytics.lbms_accruals[analytics.lbms_accruals["Date"]==spotDate]
         
         df_acc["GMV ($)"]= df_acc["GMV ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
         df_acc["Points Accrued ($)"]= df_acc["Points Accrued ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
@@ -284,10 +379,10 @@ if  len(v)>0:
             fig2 = px.scatter(df_acc[["Channel","Points Accrued ($)", "GMV ($)"]], x="Points Accrued ($)", y="GMV ($)", color="Channel",height=400,width=500,title="Channels & Products Accruals")
             col2.plotly_chart(fig2)
 
-        st.markdown("""---""")
+        # st.markdown("""---""")
         st.subheader("	:arrow_heading_down:Redemptions")
 
-        df_red = caa.lbms_redemptions[caa.lbms_redemptions["Date"]==spotDate]
+        df_red = analytics.lbms_redemptions[analytics.lbms_redemptions["Date"]==spotDate]
         df_red["Average Transaction ($)"] = df_red["Points Redeemed ($)"]/df_red["Number Transactions"]
         df_red["Points Redeemed ($)"]= df_red["Points Redeemed ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
         
@@ -327,9 +422,9 @@ if  len(v)>0:
             x="Number Transactions", y="Average Transaction ($)", color="Redemption Option",height=400,width=500,title="Value / Number Transaction Scatter Plot" )
             col2.plotly_chart(fig2)
 
-        st.markdown("""---""")
+        # st.markdown("""---""")
         st.subheader(":family:Points Cohort Analytics")
-        df_up = caa.lbms_users_points[caa.lbms_users_points["Date"]==spotDate]
+        df_up = analytics.lbms_users_points[analytics.lbms_users_points["Date"]==spotDate]
         df_up["Average Points ($) in Cohort"]= df_up["Points Value ($)"] / df_up["Number Users"]
         df_up["Points Value ($)"]= df_up["Points Value ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
         df_up["Average Points ($) in Cohort"]= df_up["Average Points ($) in Cohort"].apply(lambda x: x.quantize(THREE_DECIMAL))
@@ -370,92 +465,77 @@ if  len(v)>0:
 
     with overTime:
 
-        def add_line_trace(fig,df,row,col):
-            fig.add_trace(
-                go.Scatter(
-                    x=df["Date"],
-                    y=df["Value"],
-                    mode="lines"          
-                ),row=row, col=col
-            )
-        spotMarketplaceReport = mm.MarketplaceReport.Load(9,2022)
+        load_history = st.button("Load History")
+        if load_history:
+            analytics = ClientsAnalytics()
+
+            for date in list_of_dates:
+                tok = date.split("/")
+                push_to_analytics(analytics,client,tok[0],tok[1])
 
 
-        upToDate = datetime.datetime(int(st.session_state["year_selected"]),int(st.session_state["month_selected"]),1)
-        caa = ClientsAggregateAnalytics()
-        for date in dateList:
-            toks = date.split("/")
-            month = int(toks[0])
-            year = int(toks[1])
 
-            dateT = datetime.datetime(int(toks[1]),int(toks[0]),1)
-            if dateT <= upToDate:
-                report=fetch_client_report(client,month,year)
-                caa.PushReport(report,spotMarketplaceReport)
+            st.markdown("##### 🩺Health Indicators")
+            # AgGrid(analytics.main_frame)
+            with st.expander("Time Series Charts"):
 
-        # AgGrid(caa.main_frame)
+                df_net_revenues= analytics.main_frame[analytics.main_frame["Identifier"]=="net_revenues"]      
+                df_net_revenue_per_active_user= analytics.main_frame[analytics.main_frame["Identifier"]=="net_revenue_per_active_user"]
+                df_take_rate= analytics.main_frame[analytics.main_frame["Identifier"]=="take_rate"]
+                df_take_rate["Value"] = df_take_rate["Value"] *10000
+                df_accrual_engagement_rate= analytics.main_frame[analytics.main_frame["Identifier"]=="accrual_engagement_rate"]
+                df_accrual_engagement_rate["Value"] = df_accrual_engagement_rate["Value"] *100
+                df_accrued= analytics.main_frame[analytics.main_frame["Identifier"]=="points_accrued_std_usd"]
+                df_redeemed= analytics.main_frame[analytics.main_frame["Identifier"]=="points_redeemed_std_usd"]
 
-        st.markdown("##### 🩺Health Indicators")
+                fig = make_subplots(
+                    rows=2, cols=2,
+                    shared_xaxes=True,
+                    x_title='Dates',
+                    vertical_spacing=0.07,
+                    subplot_titles=[("Net Revenues ($)"),("Net Revenue per MAU ($)"),("Take Rate (bp)"),("Accruals Engagement Rate (%)")]
+                )
 
-        with st.expander("Time Series Charts"):
+                add_line_trace(fig,df_net_revenues,1,1)
+                add_line_trace(fig,df_take_rate,2,1)
+                add_line_trace(fig,df_net_revenue_per_active_user,1,2)
+                add_line_trace(fig,df_accrual_engagement_rate,2,2)
 
-            df_net_revenues= caa.main_frame[caa.main_frame["Identifier"]=="net_revenues"]      
-            df_net_revenue_per_active_user= caa.main_frame[caa.main_frame["Identifier"]=="net_revenue_per_active_user"]
-            df_take_rate= caa.main_frame[caa.main_frame["Identifier"]=="take_rate"]
-            df_take_rate["Value"] = df_take_rate["Value"] *10000
-            df_accrual_engagement_rate= caa.main_frame[caa.main_frame["Identifier"]=="accrual_engagement_rate"]
-            df_accrual_engagement_rate["Value"] = df_accrual_engagement_rate["Value"] *100
-            df_accrued= caa.main_frame[caa.main_frame["Identifier"]=="points_accrued"]
-            df_redeemed= caa.main_frame[caa.main_frame["Identifier"]=="points_redeemed"]
-
-            fig = make_subplots(
-                rows=2, cols=2,
-                shared_xaxes=True,
-                x_title='Dates',
-                vertical_spacing=0.07,
-                subplot_titles=[("Net Revenues ($)"),("Net Revenue per MAU ($)"),("Take Rate (bp)"),("Accruals Engagement Rate (%)")]
-            )
-
-            add_line_trace(fig,df_net_revenues,1,1)
-            add_line_trace(fig,df_take_rate,2,1)
-            add_line_trace(fig,df_net_revenue_per_active_user,1,2)
-            add_line_trace(fig,df_accrual_engagement_rate,2,2)
-
-            fig.update_layout(height=500, width=800,showlegend=False )
-            
-            st.plotly_chart(fig)
-
-       
+                fig.update_layout(height=500, width=800,showlegend=False )
+                
+                st.plotly_chart(fig)
 
         
 
-        st.markdown("##### :computer:  Key Account Metrics")
-
-        with st.expander("Time Series Charts"):
-
-            df_accrued= caa.main_frame[caa.main_frame["Identifier"]=="points_accrued"]
-            df_redeemed= caa.main_frame[caa.main_frame["Identifier"]=="points_redeemed"]
-            df_total_points = caa.main_frame[caa.main_frame["Identifier"]=="total_points"]
-            df_total_users = caa.main_frame[caa.main_frame["Identifier"]=="total_users"]
-            df_accrual_gmv = caa.main_frame[caa.main_frame["Identifier"]=="accrual_gmv"]
-            df_active_users = caa.main_frame[caa.main_frame["Identifier"]=="active_users"]
             
-            fig = make_subplots(
-                rows=2, cols=3,
-                shared_xaxes=True,
-                x_title='Dates',
-                vertical_spacing=0.07,
-                subplot_titles=["GMV ($)","Points Accrual ($)","Points Redemption ($)","Total Points Value ($)", "Total Users", "Monthly Active Users"]
-            )
 
-            add_line_trace(fig,df_accrual_gmv,1,1)
-            add_line_trace(fig,df_accrued,1,2)
-            add_line_trace(fig,df_redeemed,1,3)
-            add_line_trace(fig,df_total_points,2,1)
-            add_line_trace(fig,df_total_users,2,2)
-            add_line_trace(fig,df_active_users,2,3)
+            st.markdown("##### :computer:  Key Account Metrics")
 
-            fig.update_layout(height=500, width=800,showlegend=False )
-            
-            st.plotly_chart(fig)
+            with st.expander("Time Series Charts"):
+
+                df_accrued= analytics.main_frame[analytics.main_frame["Identifier"]=="points_accrued"]
+                df_redeemed= analytics.main_frame[analytics.main_frame["Identifier"]=="points_redeemed"]
+                df_total_points = analytics.main_frame[analytics.main_frame["Identifier"]=="total_points"]
+                df_total_users = analytics.main_frame[analytics.main_frame["Identifier"]=="total_users"]
+                df_accrual_gmv = analytics.main_frame[analytics.main_frame["Identifier"]=="accrual_gmv"]
+                df_active_users = analytics.main_frame[analytics.main_frame["Identifier"]=="accrual_active_users"]
+                
+                fig = make_subplots(
+                    rows=2, cols=3,
+                    shared_xaxes=True,
+                    x_title='Dates',
+                    vertical_spacing=0.07,
+                    subplot_titles=["GMV ($)","Points Accrual ($)","Points Redemption ($)","Total Points Value ($)", "Total Users", "Monthly Active Users"]
+                )
+
+                add_line_trace(fig,df_accrual_gmv,1,1)
+                add_line_trace(fig,df_accrued,1,2)
+                add_line_trace(fig,df_redeemed,1,3)
+                add_line_trace(fig,df_total_points,2,1)
+                add_line_trace(fig,df_total_users,2,2)
+                add_line_trace(fig,df_active_users,2,3)
+
+                fig.update_layout(height=500, width=800,showlegend=False )
+                
+                st.plotly_chart(fig)
     

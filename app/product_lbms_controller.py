@@ -47,19 +47,31 @@ CHANNELS_MAPPING = {
     "E-CHANNEL":AccrualChannel.e_channels,
     "E-Channel":AccrualChannel.e_channels,
     "ECHANNELS":AccrualChannel.e_channels,
+
+    "WEALTH MANAGEMENT":AccrualChannel.wealth_management,
+
+    "MANUAL TRANSACTION":AccrualChannel.manual,
 }
 
 REDEMPTIONS_MAPPING = {
     "30":RedemptionOption.gift_card,
     "31":RedemptionOption.utility,
     "10":RedemptionOption.exchange,
-    "5":RedemptionOption.travel,
-    "6":RedemptionOption.travel,
-    "11":RedemptionOption.shop,
+    "5":RedemptionOption.flight,
+    "6":RedemptionOption.hotel,
+    "11":RedemptionOption.clients_merchant,
+    "21":RedemptionOption.clients_merchant,
     "19":RedemptionOption.charity,
     "9":RedemptionOption.cancelled,
     "32": RedemptionOption.game,
-    "33":RedemptionOption.auction
+    "33":RedemptionOption.auction,
+    "14":RedemptionOption.cashback,
+    "23":RedemptionOption.travel,
+    "17":RedemptionOption.gift_card,
+    "3":RedemptionOption.external,
+    "8":RedemptionOption.reversal,
+    "7":RedemptionOption.car
+
 }
 
 
@@ -81,12 +93,6 @@ def BuildMonthlyLBMSData(client,month,year):
         _processCustomersActivity_Standard(lbms_data)
         _processState_Standard(lbms_data)
 
-            
-        # Calculate Client Revenues - sets Revenue Items in the report
-        #CalculateClientRevenues(config,report)    
-
-        # Apply the configuration used
-        # report.configuration=config
 
         # save the report 
         lbms_data.Save()
@@ -128,7 +134,8 @@ def _processAcrruals_Standard(report):
             print("Unknown Channel: "+row[2])
         gmv = Decimal(row[4])
         points_accrued = int(row[5])
-        points_expired = int(row[6])
+        # points_expired = int(row[6])
+        points_expired =0
         
         if channel not in accruals_by_channel:
             accruals_by_channel[channel]=[]
@@ -149,12 +156,17 @@ def _processRedemptions_Standard(report):
     red_redemption_option = {}
     total_points_redeemed = 0
     for row in csvreader:
+        
+        loyalty_txn_type = "9999"
+        if len(row)==0:
+            break
+        
+        loyalty_txn_type = row[len(row)-1]
+
         trans_type = row[0]
         points = int(row[2])
         narration = row[4]
-        loyalty_txn_type = row[10]
         redemption_option = RedemptionOption.unknown
-        
         if loyalty_txn_type in REDEMPTIONS_MAPPING:
             redemption_option = REDEMPTIONS_MAPPING[loyalty_txn_type]
         elif loyalty_txn_type !="9":
@@ -187,6 +199,8 @@ def _processCustomersActivity_Standard(report):
 
     custAcc = CustomersActivity()
     for row in csvreader:
+        if len(row)==0:
+            break
         stat = int(row[0])
         value = int(row[3])
         
@@ -246,6 +260,8 @@ def _processState_Standard(report):
     tiering = PointsTiering()
     lineNumber = 1
     for row in csvreader:
+        if len(row)==0:
+            break
         tokens = row[0].split(" ")
         value = int(row[1])
 
