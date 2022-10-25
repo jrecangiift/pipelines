@@ -68,6 +68,7 @@ def push_to_analytics(analytics,client,month,year):
         if product =="LBMS":
             try:
                 lbms_data = fetch_lbms_data(client,month,year)
+                # st.write(lbms_data)
                 analytics.push_lbms_data(client_config,lbms_data)
             except:
                 traceback.print_exc()
@@ -192,11 +193,11 @@ elif not v[0]["Live"]:
 # Client is selected - run report script
 if  len(v) and v[0]["Live"]>0:  
 
-    monthlyReporting, overTime, tabExperimental = st.tabs(["Monthly Report", "Over Time", "Performance"])
+    monthlyReporting, overTime, tabExperimental, debug_tab = st.tabs(["Monthly Report", "Over Time", "Performance", "Debug"])
     
     with monthlyReporting:
 
-        analytics = ClientsAnalytics()
+        analytics = ClientsAnalytics.Load()
         
 
 
@@ -209,13 +210,13 @@ if  len(v) and v[0]["Live"]>0:
         spot_products = spot_client_config.products
         # Load Client Config and loop on products
         
-        push_to_analytics(analytics,client,month,year)
+        # push_to_analytics(analytics,client,month,year)
 
         prev = GetPreviousMonth(int(st.session_state["month_selected"]),int(st.session_state["year_selected"]))
         prev_month = prev[0]
         prev_year = prev[1]
 
-        push_to_analytics(analytics,client,prev_month,prev_year)
+        # push_to_analytics(analytics,client,prev_month,prev_year)
 
         spotDate = str(month)+"/"+str(year)
         prevDate = str(prev_month)+"/"+str(prev_year)
@@ -423,42 +424,42 @@ if  len(v) and v[0]["Live"]>0:
             col2.plotly_chart(fig2)
 
         # st.markdown("""---""")
-        st.subheader(":family:Points Cohort Analytics")
-        df_up = analytics.lbms_users_points[analytics.lbms_users_points["Date"]==spotDate]
-        df_up["Average Points ($) in Cohort"]= df_up["Points Value ($)"] / df_up["Number Users"]
-        df_up["Points Value ($)"]= df_up["Points Value ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
-        df_up["Average Points ($) in Cohort"]= df_up["Average Points ($) in Cohort"].apply(lambda x: x.quantize(THREE_DECIMAL))
-        df_up = df_up.sort_values(["Average Points ($) in Cohort"], ascending=[False])
-        # df_up.sort_index('Average Points ($) in Cohort')
-        with st.expander("Points Cohort Data"):
+        # st.subheader(":family:Points Cohort Analytics")
+        # df_up = analytics.lbms_users_points[analytics.lbms_users_points["Date"]==spotDate]
+        # df_up["Average Points ($) in Cohort"]= df_up["Points Value ($)"] / df_up["Number Users"]
+        # df_up["Points Value ($)"]= df_up["Points Value ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
+        # df_up["Average Points ($) in Cohort"]= df_up["Average Points ($) in Cohort"].apply(lambda x: x.quantize(THREE_DECIMAL))
+        # df_up = df_up.sort_values(["Average Points ($) in Cohort"], ascending=[False])
+        # # df_up.sort_index('Average Points ($) in Cohort')
+        # with st.expander("Points Cohort Data"):
             
-            gb = GridOptionsBuilder.from_dataframe(df_up)
-            gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
-            gb.configure_side_bar()
-            gb.configure_column("Average Points ($) in Cohort",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
-            gb.configure_column("Client",hide=True)
-            gb.configure_column("Date",hide=True)
-            gb.configure_column("Points Value Threashold ($)",hide=True)
-            gb.configure_column("Points Value ($)",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+        #     gb = GridOptionsBuilder.from_dataframe(df_up)
+        #     gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
+        #     gb.configure_side_bar()
+        #     gb.configure_column("Average Points ($) in Cohort",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+        #     gb.configure_column("Client",hide=True)
+        #     gb.configure_column("Date",hide=True)
+        #     gb.configure_column("Points Value Threashold ($)",hide=True)
+        #     gb.configure_column("Points Value ($)",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
 
             
-            gridoptions = gb.build()
-            response = AgGrid(
-                df_up,
-                gridOptions=gridoptions,
-                height=300,
-                enable_enterprise_modules=True,
-                update_mode=GridUpdateMode.NO_UPDATE,
-                fit_columns_on_grid_load=False,
-                header_checkbox_selection_filtered_only=True,
-                allow_unsafe_jscode=True
-                )
+        #     gridoptions = gb.build()
+        #     response = AgGrid(
+        #         df_up,
+        #         gridOptions=gridoptions,
+        #         height=300,
+        #         enable_enterprise_modules=True,
+        #         update_mode=GridUpdateMode.NO_UPDATE,
+        #         fit_columns_on_grid_load=False,
+        #         header_checkbox_selection_filtered_only=True,
+        #         allow_unsafe_jscode=True
+        #         )
 
 
-        with st.expander("Point Value Analytics Chart"):
-            fig2 = px.scatter(df_up[["Average Points ($) in Cohort","Number Users","Points Value ($)"]], x="Average Points ($) in Cohort", y="Number Users"
-            ,title="Cohort Points Scatter Plot")
-            st.plotly_chart(fig2)
+        # with st.expander("Point Value Analytics Chart"):
+        #     fig2 = px.scatter(df_up[["Average Points ($) in Cohort","Number Users","Points Value ($)"]], x="Average Points ($) in Cohort", y="Number Users"
+        #     ,title="Cohort Points Scatter Plot")
+        #     st.plotly_chart(fig2)
 
 
         
@@ -467,11 +468,11 @@ if  len(v) and v[0]["Live"]>0:
 
         load_history = st.button("Load History")
         if load_history:
-            analytics = ClientsAnalytics()
+            analytics = ClientsAnalytics.Load()
 
-            for date in list_of_dates:
-                tok = date.split("/")
-                push_to_analytics(analytics,client,tok[0],tok[1])
+            # for date in list_of_dates:
+            #     tok = date.split("/")
+            #     push_to_analytics(analytics,client,tok[0],tok[1])
 
 
 
@@ -538,4 +539,8 @@ if  len(v) and v[0]["Live"]>0:
                 fig.update_layout(height=500, width=800,showlegend=False )
                 
                 st.plotly_chart(fig)
+
+    with debug_tab:
+
+        st.write(analytics)
     

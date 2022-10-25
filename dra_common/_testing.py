@@ -7,7 +7,7 @@ import requests
 import boto3
 
 
-from client_configuration_model import ClientConfiguration,CLIENT_CONFIG_BUCKET,ClientConfigurationManager
+from client_configuration_model import ClientConfiguration, CLIENT_CONFIG_BUCKET, ClientConfigurationManager
 from clients_analytics import ClientsAnalytics
 from product_lbms_model import LBMSMonthlyData
 from fx_conversion import FXConverter
@@ -18,16 +18,17 @@ from boto3.dynamodb.conditions import Key
 from decimal import Decimal
 import utils as utils
 import client_configuration_model as ccm
-from product_lbms_controller import  BuildMonthlyLBMSData
+from product_lbms_controller import BuildMonthlyLBMSData
 from operator import attrgetter
 import pandas as pd
 
 
 def MakeConfigfileSample():
     cc = ccm.ClientConfiguration("ABC",
-    ccm.LBMSConfiguration("IDR",10,False),ccm.MarketplaceConfiguration("BNI"),["LBMS","Marketplace"]
-    )
-    
+                                 ccm.LBMSConfiguration("IDR", 10, False), ccm.MarketplaceConfiguration(
+                                     "BNI"), ["LBMS", "Marketplace"]
+                                 )
+
     cc.revenues.single_fixed_revenues.append(ccm.SingleFixedRevenue(
         8,
         2022,
@@ -38,10 +39,11 @@ def MakeConfigfileSample():
         amount=15000,
         currency_code="USD",
         label="some stuff",
-        net_offset = Decimal('0.01')))
+        net_offset=Decimal('0.01')))
 
     cc.revenues.recurring_float_revenues.linear.append(ccm.FloatLinearRevenue(
-        RevenueClassification(BusinessLine.corporate_loyalty,ProductLine.lbms),
+        RevenueClassification(
+            BusinessLine.corporate_loyalty, ProductLine.lbms),
         Decimal('0'),
         Decimal('0.01'),
         "product_metrics.lbms_metrics.points_accrued",
@@ -51,24 +53,23 @@ def MakeConfigfileSample():
     ))
 
     cc.revenues.recurring_float_revenues.min_max_linear.append(ccm.FloatMinMaxLinearRevenue(
-        RevenueClassification(BusinessLine.corporate_loyalty,ProductLine.lbms),
+        RevenueClassification(
+            BusinessLine.corporate_loyalty, ProductLine.lbms),
         Decimal('0'),
         Decimal('0.01'),
         "product_metrics.lbms_metrics.points_accrued",
         "USD",
         "per fee something",
         Decimal('0.01'),
-        has_min = True,
+        has_min=True,
         min=Decimal('1000.00')
     ))
 
-
     ccm.WriteClientConfig(cc)
-    
 
     print(cc)
 
-    print(json.dumps(cc.to_dict(),sort_keys=True, indent=4))
+    print(json.dumps(cc.to_dict(), sort_keys=True, indent=4))
 
     #print(json.dumps({"salary": Decimal("5000000.00")}))
 
@@ -76,7 +77,6 @@ def MakeConfigfileSample():
 
 
 ######## LBMS Monthly Data Build ######
-
 config_manager = ClientConfigurationManager()
 config_manager.Init()
 clients = [
@@ -91,18 +91,18 @@ clients = [
     "EBL",
     "GBK",
     "QNB",
-    ]
+]
 
-months = [4,5,6,7,8,9]
+months = [4, 5, 6, 7, 8, 9]
 
-for c in clients:
-    for m in months:
-        print(c + "/" + str(m))
-        # config = config_manager.LoadConfig('BDI',m,2022)
-        try:
-            lbms_data = BuildMonthlyLBMSData(c,m,2022)
-        except:
-            continue
+# for c in clients:
+#     for m in months:
+#         print(c + "/" + str(m))
+#         # config = config_manager.LoadConfig('BDI',m,2022)
+#         try:
+#             lbms_data = BuildMonthlyLBMSData(c, m, 2022)
+#         except:
+#             continue
 
 
 # lbms_data = BuildMonthlyLBMSData('BJB',4,2022)
@@ -110,22 +110,27 @@ for c in clients:
 
 # cl_analytics = ClientsAnalytics()
 
-# config = config_manager.LoadConfig('CBI',7,2022)
-# lbms_data = LBMSMonthlyData.Load('CBI',7,2022)
-# cl_analytics.push_lbms_data(config,lbms_data)
+# for cl in clients:
+#     for month in months:
+#         try:
+#             config = config_manager.LoadConfig(cl,month,2022)
+#             lbms_data = LBMSMonthlyData.Load(cl,month,2022)
+#             cl_analytics.push_lbms_data(config,lbms_data)
+#             marketplace_data = MarketplaceReport.Load(9,2022)
+#             marketplace_data.month=month
+#             marketplace_data.year=2022
+#             cl_analytics.push_marketplace_data(config,marketplace_data)
+#             print("Loading for: "+cl + "/" + str(month)+ " successful")
+#         except:
+#             traceback.print_exc()
+#             print("Loading for: "+cl + "/" + str(month)+ " failed")
 
-# print(cl_analytics.revenue_frame)
 
+# cl_analytics.save()
 
+cl_analytics = ClientsAnalytics.Load()
 
-
-
-
-
-
-
-
-
+print(cl_analytics.revenue_frame)
 
 
 # config = config_manager.LoadConfig('BNI',7,2022)
@@ -153,16 +158,12 @@ for c in clients:
 # print(cl_analytics.main_frame)
 
 
-
-
 # report = BuildClientReport('BDI',7,2022)
 
 # report = ClientAggregateReport.Load('BNI',8,2022)
 
 
-
 # spotMarketplaceReport = MarketplaceReport.Load(9,2022)
-
 
 
 # fx = FXConverter(
@@ -178,7 +179,6 @@ for c in clients:
 # ClientsAggregateAnalytics
 
 
-
 # print(caa.missing_data_points)
 
 # print(caa.main_frame)
@@ -191,13 +191,10 @@ for c in clients:
 # caa.PushReport(report, spotMarketplaceReport)
 
 
-
 # print(caa.revenue_frame)
 # print(caa.main_frame)
 # report = ClientAggregateReport.ListAll()
 # print(report)
-
-
 
 
 # client = 'BDI'
@@ -220,8 +217,6 @@ for c in clients:
 ######### Testing the config manager ##########
 
 # BUCK = 'dra-config'
-
-
 
 
 # client_config_manager = ClientConfigurationManager()
