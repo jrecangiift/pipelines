@@ -1,3 +1,4 @@
+from product_marketplace_controller import BuildMarketplaceReport
 from services_model import ServiceRevenueDeclaration, ServiceType
 
 
@@ -11,3 +12,11 @@ srd.Save()
 # srds = ServiceRevenueDeclaration.ListForClient(10,2022,"CBI")
 
 # print(srds)
+
+
+
+
+report = BuildMarketplaceReport(9,2022)
+
+report.Save()
+

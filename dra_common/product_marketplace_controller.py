@@ -54,7 +54,7 @@ def BuildMarketplaceReport(month, year):
 
 
 
-        print(report.margins_frame.to_json())
+
 
         return report    
     else:

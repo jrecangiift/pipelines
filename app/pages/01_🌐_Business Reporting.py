@@ -224,7 +224,8 @@ if st.session_state["authentication_status"]:
                     update_mode=GridUpdateMode.NO_UPDATE,
                     fit_columns_on_grid_load=True,
                     header_checkbox_selection_filtered_only=True,
-                    allow_unsafe_jscode=True
+                    allow_unsafe_jscode=True,
+                    license_key=st.secrets["aggrid_license"]
                     )
 
           

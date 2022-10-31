@@ -12,4 +12,4 @@ RUN pip install -U spacy
 RUN python -m spacy download en_core_web_sm
 
 COPY . . /app/
-CMD streamlit run 0_🏠_Home.py
+CMD streamlit run 0_🏠_Welcome.py

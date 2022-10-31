@@ -10,68 +10,77 @@ import sys
 from client_configuration_model import ClientConfiguration, CLIENT_CONFIG_BUCKET, ClientConfigurationManager
 from clients_analytics import ClientsAnalytics
 from clients_analytics_manager import ClientAnalyticsManager
-from product_lbms_model import LBMSMonthlyData
-from fx_conversion import FXConverter
-from revenue_model import BusinessLine, ProductLine, RevenueClassification
-from product_marketplace_model import MarketplaceReport
+# from product_lbms_model import LBMSMonthlyData
+# from fx_conversion import FXConverter
+# from revenue_model import BusinessLine, ProductLine, RevenueClassification
+# from product_marketplace_model import MarketplaceReport
 from product_marketplace_controller import BuildMarketplaceReport
-from boto3.dynamodb.conditions import Key
-from decimal import Decimal
-import utils as utils
-import client_configuration_model as ccm
-from product_lbms_controller import BuildMonthlyLBMSData
-from operator import attrgetter
-import pandas as pd
-import warnings
-warnings.filterwarnings('ignore')
+# from boto3.dynamodb.conditions import Key
+# from decimal import Decimal
+# # import utils as utils
+# import client_configuration_model as ccm
+# from product_lbms_controller import BuildMonthlyLBMSData
 
-def MakeConfigfileSample():
-    cc = ccm.ClientConfiguration("ABC",
-                                 ccm.LBMSConfiguration("IDR", 10, False), ccm.MarketplaceConfiguration(
-                                     "BNI"), ["LBMS", "Marketplace"]
-                                 )
 
-    cc.revenues.single_fixed_revenues.append(ccm.SingleFixedRevenue(
-        8,
-        2022,
-        amount=10000,
-        currency_code="USD"))
+report = BuildMarketplaceReport(9,2022)
 
-    cc.revenues.recurring_fixed_revenues.append(ccm.RecurringFixedRevenue(
-        amount=15000,
-        currency_code="USD",
-        label="some stuff",
-        net_offset=Decimal('0.01')))
+print(report.margins_frame)
 
-    cc.revenues.recurring_float_revenues.linear.append(ccm.FloatLinearRevenue(
-        RevenueClassification(
-            BusinessLine.corporate_loyalty, ProductLine.lbms),
-        Decimal('0'),
-        Decimal('0.01'),
-        "product_metrics.lbms_metrics.points_accrued",
-        "USD",
-        "per fee something",
-        Decimal('0.01')
-    ))
 
-    cc.revenues.recurring_float_revenues.min_max_linear.append(ccm.FloatMinMaxLinearRevenue(
-        RevenueClassification(
-            BusinessLine.corporate_loyalty, ProductLine.lbms),
-        Decimal('0'),
-        Decimal('0.01'),
-        "product_metrics.lbms_metrics.points_accrued",
-        "USD",
-        "per fee something",
-        Decimal('0.01'),
-        has_min=True,
-        min=Decimal('1000.00')
-    ))
 
-    ccm.WriteClientConfig(cc)
 
-    print(cc)
 
-    print(json.dumps(cc.to_dict(), sort_keys=True, indent=4))
+# import pandas as pd
+
+# warnings.filterwarnings('ignore')
+
+# def MakeConfigfileSample():
+    # cc = ccm.ClientConfiguration("ABC",
+    #                              ccm.LBMSConfiguration("IDR", 10, False), ccm.MarketplaceConfiguration(
+    #                                  "BNI"), ["LBMS", "Marketplace"]
+    #                              )
+
+    # cc.revenues.single_fixed_revenues.append(ccm.SingleFixedRevenue(
+    #     8,
+    #     2022,
+    #     amount=10000,
+    #     currency_code="USD"))
+
+    # cc.revenues.recurring_fixed_revenues.append(ccm.RecurringFixedRevenue(
+    #     amount=15000,
+    #     currency_code="USD",
+    #     label="some stuff",
+    #     net_offset=Decimal('0.01')))
+
+    # cc.revenues.recurring_float_revenues.linear.append(ccm.FloatLinearRevenue(
+    #     RevenueClassification(
+    #         BusinessLine.corporate_loyalty, ProductLine.lbms),
+    #     Decimal('0'),
+    #     Decimal('0.01'),
+    #     "product_metrics.lbms_metrics.points_accrued",
+    #     "USD",
+    #     "per fee something",
+    #     Decimal('0.01')
+    # ))
+
+    # cc.revenues.recurring_float_revenues.min_max_linear.append(ccm.FloatMinMaxLinearRevenue(
+    #     RevenueClassification(
+    #         BusinessLine.corporate_loyalty, ProductLine.lbms),
+    #     Decimal('0'),
+    #     Decimal('0.01'),
+    #     "product_metrics.lbms_metrics.points_accrued",
+    #     "USD",
+    #     "per fee something",
+    #     Decimal('0.01'),
+    #     has_min=True,
+    #     min=Decimal('1000.00')
+    # ))
+
+    # ccm.WriteClientConfig(cc)
+
+    # print(cc)
+
+    # print(json.dumps(cc.to_dict(), sort_keys=True, indent=4))
 
     #print(json.dumps({"salary": Decimal("5000000.00")}))
 
@@ -129,19 +138,19 @@ def MakeConfigfileSample():
 
 # cl_analytics.save()
 
-manager = ClientAnalyticsManager()
+# manager = ClientAnalyticsManager()
 
-manager.BuildMonthlyClientAnalytics(4,2022)
-manager.BuildMonthlyClientAnalytics(5,2022)
-manager.BuildMonthlyClientAnalytics(6,2022)
-manager.BuildMonthlyClientAnalytics(7,2022)
-manager.BuildMonthlyClientAnalytics(8,2022)
-anal = manager.BuildMonthlyClientAnalytics(9,2022)
+# manager.BuildMonthlyClientAnalytics(4,2022)
+# manager.BuildMonthlyClientAnalytics(5,2022)
+# manager.BuildMonthlyClientAnalytics(6,2022)
+# manager.BuildMonthlyClientAnalytics(7,2022)
+# manager.BuildMonthlyClientAnalytics(8,2022)
+# anal = manager.BuildMonthlyClientAnalytics(9,2022)
 
 
 
-analytics = manager.LoadClientAnalytics(['4/2022','5/2022','6/2022','7/2022','8/2022','9/2022'])
-print(analytics.revenue_frame)
+# analytics = manager.LoadClientAnalytics(['4/2022','5/2022','6/2022','7/2022','8/2022','9/2022'])
+# print(analytics.revenue_frame)
 
 # cl_analytics = ClientsAnalytics.Load()
 
@@ -220,7 +229,8 @@ print(analytics.revenue_frame)
 # BuildClientReport(client, 8,2022)
 # BuildClientReport(client, 9,2022)
 
-# report = BuildMarketplaceReport(9,2022)
+
+
 
 
 # report = MarketplaceReport.Load(9,2022)

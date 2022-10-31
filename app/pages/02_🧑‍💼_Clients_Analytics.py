@@ -144,7 +144,8 @@ if st.session_state["authentication_status"]:
             fit_columns_on_grid_load=True,
             header_checkbox_selection_filtered_only=False,
             allow_unsafe_jscode=True,
-            use_checkbox=False)
+            use_checkbox=False,
+            license_key=st.secrets["aggrid_license"])
         v = response['selected_rows']
         if len(v)>0:
             if "Client" in v[0].keys():
@@ -300,7 +301,8 @@ if st.session_state["authentication_status"]:
                     update_mode=GridUpdateMode.NO_UPDATE,
                     fit_columns_on_grid_load=True,
                     header_checkbox_selection_filtered_only=True,
-                    allow_unsafe_jscode=True
+                    allow_unsafe_jscode=True,
+                    license_key=st.secrets["aggrid_license"]
                     )
                 
                 fig1 = px.bar(net_rev_df, color="Revenue Type", x="Product",
@@ -390,7 +392,8 @@ if st.session_state["authentication_status"]:
                     update_mode=GridUpdateMode.NO_UPDATE,
                     fit_columns_on_grid_load=False,
                     header_checkbox_selection_filtered_only=True,
-                    allow_unsafe_jscode=True
+                    allow_unsafe_jscode=True,
+                    license_key=st.secrets["aggrid_license"]
                     )
 
             with st.expander("Redemption Plots"):  
@@ -433,7 +436,8 @@ if st.session_state["authentication_status"]:
                     update_mode=GridUpdateMode.NO_UPDATE,
                     fit_columns_on_grid_load=False,
                     header_checkbox_selection_filtered_only=True,
-                    allow_unsafe_jscode=True
+                    allow_unsafe_jscode=True,
+                    license_key=st.secrets["aggrid_license"]
                     )
 
 

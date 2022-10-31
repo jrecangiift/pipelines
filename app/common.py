@@ -3,19 +3,6 @@ import pandas as pd
 
 
 
-def GetPreviousMonth(month, year):
-    if month == 1:
-        return [12, year-1]
-    else:
-        return [month-1, year]
-
-
-def AddToDic(dic, key, num):
-    if key in dic:
-        dic[key] += num
-    else:
-        dic[key] = num
-
 
 # def GetClientMapDataFrame():
 #     entries = []

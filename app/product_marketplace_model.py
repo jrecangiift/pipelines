@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from typing import Dict
 import pandas as pd
-
+import pickle
 
 MARKETPLACE_DATA_AWS = 'dra-marketplace-data'
 
@@ -117,43 +117,22 @@ class MarketplaceReport:
         return report
 
 
+ 
     def Save(self):
-        s3_client = boto3.client('s3')
-        #we save the frames separately
-        
-        #margins_frame
-        s3_client = boto3.client('s3')
-        key = "magins_frame"+"@"+str(self.month) + "@"+str(self.year)+".json"
-        data = s3_client.put_object(Bucket=MARKETPLACE_DATA_AWS, Key=key, Body=self.margins_frame.to_json())
-
-        #markups_det
-        s3_client = boto3.client('s3')
-        key = "markups_det_frame"+"@"+str(self.month) + "@"+str(self.year)+".json"
-        data = s3_client.put_object(Bucket=MARKETPLACE_DATA_AWS, Key=key, Body=self.markups_det_frame.to_json())
-
+        bucket = MARKETPLACE_DATA_AWS 
+        key = str(self.month)+"@"+str(self.year)
+        pickle_byte_obj = pickle.dumps(self)
+        s3_resource = boto3.resource('s3')
+        s3_resource.Object(bucket, key).put(Body=pickle_byte_obj)
         
 
     @staticmethod
     def Load(month, year):
         
-        marketplace_report = MarketplaceReport(month,year)
+        bucket = MARKETPLACE_DATA_AWS 
+        key = str(month)+"@"+str(year)      
         s3 = boto3.resource('s3')
-        #we load the frames if they exist
-        
-        #margins_frame  
-        key = "magins_frame"+"@"+str(month)+"@"+str(year)+".json"
-        obj = s3.Object(MARKETPLACE_DATA_AWS,key)
-        data = obj.get()['Body'].read().decode('utf-8')
-        marketplace_report.margins_frame= pd.read_json(data)
-        
-        #markups_det_frame  
-        key = "markups_det_frame"+"@"+str(month)+"@"+str(year)+".json"
-        obj = s3.Object(MARKETPLACE_DATA_AWS,key)
-        data = obj.get()['Body'].read().decode('utf-8')
-        marketplace_report.markups_det_frame= pd.read_json(data)
-        
-
-        return marketplace_report
+        return pickle.loads(s3.Bucket(bucket).Object(key).get()['Body'].read())
 
     @staticmethod
     def ListAll():
@@ -164,7 +143,7 @@ class MarketplaceReport:
             files_json = files['Contents']
             for fi in files_json:
                 tok = fi['Key'].split('@')
-                period=tok[1]+'/'+ (tok[2].split('.'))[0]
+                period=tok[0]+'/'+ tok[1]
                 dates.append(period)
         return dates
 

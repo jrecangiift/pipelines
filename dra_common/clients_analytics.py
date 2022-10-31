@@ -43,10 +43,8 @@ USERS_POINTS_COLUMNS = ["Client", "Date", "Points Value Threashold ($)", "Number
 ##################################################
 
 #### MARKETPLACE DATA FRAMES ############################
-MARGINS_COLUMNS = mm.MARGINS_FRAME_COLUMNS.append(
-    ["Margin ($)", "Transaction Amount ($)"])
-MARKUPS_COLUMNS = mm.MARKUPS_DET_FRAME_COLUMNS.append(
-    ["Markup ($)", "Transaction Amount ($)"])
+MARGINS_COLUMNS = ["Supplier", "Client","Date", "Margin Amount", "Currency Code","Number Transactions", "Transactions Amount","Margin ($)", "Transaction Amount ($)"]
+MARKUPS_COLUMNS =  ["Supplier", "Client","Date", "Markup Amount", "Currency Code","Number Transactions", "Transactions Amount","Markup ($)", "Transaction Amount ($)"]
 ##################################################
 
 
