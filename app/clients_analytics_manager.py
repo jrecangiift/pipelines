@@ -93,5 +93,18 @@ class ClientAnalyticsManager:
             analytics_temp = self.LoadMonthlyClientAnalytics(token[0],token[1])
             analytics.concat(analytics_temp)
         return analytics
-            
+
+    
+    def ListAll(self):
+        s3_client = boto3.client('s3')
+        files = s3_client.list_objects_v2(Bucket='dra-clients-analyics-serialized')
+        dates = []
+        if (files['KeyCount']>0):
+            files_json = files['Contents']
+            for fi in files_json:
+                tok = fi['Key'].split('@')
+                period=tok[0]+'/'+ tok[1]
+                dates.append(period)
+        return dates
+
 

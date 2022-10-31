@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from decimal import Decimal
 import datetime
+from clients_analytics_manager import ClientAnalyticsManager
 from product_marketplace_controller import BuildMarketplaceReport
 from utils import GetPreviousMonth
 import plotly.express as px
@@ -45,11 +46,11 @@ if st.session_state["authentication_status"]:
 
     months = range(13)[1:]
     years = ['2022','2023','2024']
-    menu_selection = option_menu(None, ["Product ETLS", "Analytical Layers"], 
+    menu_selection = option_menu(None, ["Products ETL", "Analytical Layers"], 
     # icons=['file-earmark', 'graph-up', "clipboard-data", 'gear'], 
     menu_icon="cast", default_index=0, orientation="horizontal" )
 
-    if menu_selection == 'Product ETLS':
+    if menu_selection == 'Products ETL':
         col1,col2=st.columns([2,6])
         col1.selectbox("Select a Product",["LBMS","Marketplace"], key="product_selected")
 
@@ -139,3 +140,22 @@ if st.session_state["authentication_status"]:
                     AgGrid(report.markups_det_frame)
                 except:
                     st.success("Run failed" )
+
+    if menu_selection == 'Analytical Layers':
+
+        st.markdown("#### Clients Analytics Monthly Runs") 
+        cam =ClientAnalyticsManager()
+        mktplace_list = cam.ListAll()
+        st.write(mktplace_list)
+        col1, col2, col3 = st.columns([2,2,1])
+        col1.selectbox("Month",months, key="month")
+        col2.selectbox("Years",years, key="year")  
+        run = st.button("Run Clients Analytics")
+        if run:
+            try:
+                analytics = cam.BuildMonthlyClientAnalytics(st.session_state["month"],st.session_state["year"] )
+                st.success("Run successful" )
+                AgGrid(analytics.main_frame)
+                AgGrid(analytics.push_execution_frame   )
+            except:
+                st.success("Run failed" )

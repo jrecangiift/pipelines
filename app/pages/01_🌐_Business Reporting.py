@@ -56,12 +56,7 @@ auth_protocol.Auth()
 if st.session_state["authentication_status"]:
 
     list_of_dates = get_dates_list_formatted()
-    # print(list_of_dates)
-    # date_selected = st.sidebar.selectbox("Pick Date",list_of_dates, index = len(list_of_dates)-1, label_visibility="collapsed", format_func=format_date)
 
-    # toks = date_selected.split("/")
-    # st.session_state["month_selected"]=toks[0]
-    # st.session_state["year_selected"]=toks[1]
 
     menu_selection = option_menu(None, ["Group Revenues",  "Products", 'Services'], 
             icons=['file-earmark', "clipboard-data", 'gear'], 
@@ -81,6 +76,7 @@ if st.session_state["authentication_status"]:
         # st.dataframe(analytics.revenue_frame)
 
         rev_frame = analytics.revenue_frame
+        rev_frame["Date"] = rev_frame["Date"].apply(dateFunc)
 
         rev_frame['Net Amount ($)'] = rev_frame['Net Amount ($)'].apply(lambda x: Decimal(x))
         st.write("----")
