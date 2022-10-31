@@ -4,20 +4,7 @@ from xmlrpc.client import Boolean
 from dataclasses_json import dataclass_json
 from enum import Enum
 from typing import Dict,List
-
-class BusinessLine(str,Enum):
-    corporate_loyalty = "Corporate Loyalty"
-    merchant_loyalty = "Merchant Loyalty"
-    employee_reward = "Employee Loyalty"
-    unknown = "Unknown"
-
-class ProductLine(str,Enum):
-    lbms = "LBMS"
-    marketplace = "Marketplace"
-    box = "Box"
-    marketing = "Marketing"
-    plum = "Plum"
-    unknown = "Unknown"
+from meta_data import BusinessLine,ProductLine
 
 @dataclass_json
 @dataclass

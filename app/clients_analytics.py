@@ -21,10 +21,11 @@ from revenue_model import BusinessLine, RevenueItem
 import pandas as pd
 import product_lbms_model as cam
 import product_marketplace_model as mm
+import services_model as servm
 import traceback
 import boto3
 import pickle
-
+import numpy as np
 
 #### GLOBAL DATA FRAMES ##########################
 MAIN_FRAME_COLUMNS = ["Client", "Date", "Business Line",
@@ -38,15 +39,14 @@ ACCRUALS_COLUMNS = ["Client", "Date", "Channel", "Product",
                     "Points Accrued", "Points Accrued ($)", "GMV ($)", "Points Expired ($)"]
 REDEMPTION_COLUMNS = ["Client", "Date", "Redemption Option",
                       "Points Redeemed", "Points Redeemed ($)", "Number Transactions"]
-USERS_POINTS_COLUMNS = [
-    "Client", "Date", "Points Value Threashold ($)", "Number Users", "Points Value ($)"]
+USERS_POINTS_COLUMNS = ["Client", "Date", "Points Value Threashold ($)", "Number Users", "Points Value ($)"]
 ##################################################
 
 #### MARKETPLACE DATA FRAMES ############################
 MARGINS_COLUMNS = mm.MARGINS_FRAME_COLUMNS.append(
     ["Margin ($)", "Transaction Amount ($)"])
 MARKUPS_COLUMNS = mm.MARKUPS_DET_FRAME_COLUMNS.append(
-    ["Margin ($)", "Transaction Amount ($)"])
+    ["Markup ($)", "Transaction Amount ($)"])
 ##################################################
 
 
@@ -66,7 +66,7 @@ class ClientsAnalytics:
     marketplace_markups_det: pd.DataFrame = pd.DataFrame(
         columns=MARKUPS_COLUMNS)
 
-    missing_data_points: List = field(default_factory=list)
+    push_execution_frame = pd.DataFrame(columns=['Client','Month','Year','Product','Success'])
 
     def push_lbms_data(self, client_config, data):
         month = data.month
@@ -78,15 +78,76 @@ class ClientsAnalytics:
 
         self.lbms_finalize_metrics(client_config, month, year)
 
+            
+
     def push_marketplace_data(self, client_config, data):
         month = data.month
         year = data.year
-
+        
         self.marketplace_process_data(client_config, data)
 
         self.marketplace_calculate_revenues(client_config, month, year)
 
         self.marketplace_finalize_metrics(client_config, month, year)
+
+    #this one is straghtforward - pull from DDB and push into revenue frame 
+    def pull_services_data(self,client_config, month,year):
+        client = client_config.client_code
+        services_list = servm.ServiceRevenueDeclaration.ListForClient(month,year,client)
+        date = str(month)+'/'+str(year)
+        fx = FXConverter(
+            point_value=client_config.lbms_configuration.point_value_to_local_ccy,
+            ccy_code=client_config.lbms_configuration.local_ccy
+        )
+
+        #push directly into revenue stream
+        items = []
+        for service in services_list:
+            items.append(
+              {
+                "Client": client,
+                "Date": date,
+                "Business Line": service.business,
+                "Product": "Service",
+                "Revenue Type": service.type,
+                "Gross Amount ($)": fx.ccy_to_cst_usd(service.amount, service.currency),
+                "Net Amount ($)": fx.ccy_to_cst_usd(service.amount, service.currency),
+                "Base Amount": service.amount,
+                "Base Currency": service.currency,
+                "All Tags": {},
+                "Net Offset": 0,
+                "Label": service.label
+                    }
+            )
+        if len(items)>0:
+            df = pd.DataFrame(items,columns = REVENUE_COLUMNS)
+            self.revenue_frame = pd.concat([self.revenue_frame,df])
+
+            # push into the main frame - TODO group by business to explode in metrics
+            df_rev = self.revenue_frame
+
+            net_revenues = df_rev[(df_rev['Client'] == client) & (df_rev['Date'] == date) & 
+            (df_rev['Product'] == "Services")]["Net Amount ($)"].sum()
+            gross_revenues = df_rev[(df_rev['Client'] == client) & (df_rev['Date'] == date) & 
+            (df_rev['Product'] == "Services")]["Gross Amount ($)"].sum()
+
+            secondary_metrics_items = []
+
+            secondary_metrics_items.append(
+                mk_mf_item(client, date, "Corporate Loyalty", "Services",
+                        "metrics", "net_revenues", net_revenues)
+            )
+            secondary_metrics_items.append(
+                mk_mf_item(client, date, "Corporate Loyalty", "Services",
+                        "metrics", "gross_revenues", gross_revenues)
+            )
+
+            df_secondary = pd.DataFrame(
+                secondary_metrics_items, columns=MAIN_FRAME_COLUMNS)
+            self.main_frame = pd.concat([self.main_frame, df_secondary])
+
+
+
 
     # URL is <business.product.type.identifier>
     def GetResources(self, client, date, url):
@@ -143,124 +204,145 @@ class ClientsAnalytics:
         if func == "accrual_active_users":
             return self.GetMetrics(client, date, "Corporate Loyalty", "LBMS", "accrual_active_users")
 
+    def report_push_execution(self,client,month,year,product,success):
+
+        df = pd.DataFrame([{'Client':client,'Month':month,'Year':year,'Product':product,'Success':success}])
+        self.push_execution_frame = pd.concat([self.push_execution_frame,df])
+
+    def concat(self, analytics):
+        print("starting merge")
+        #concatenate all the frames and merge the lists
+        self.main_frame = pd.concat([self.main_frame,analytics.main_frame])
+        
+        self.revenue_frame = pd.concat([self.revenue_frame,analytics.revenue_frame])
+        
+        self.lbms_accruals = pd.concat([self.lbms_accruals,analytics.lbms_accruals])
+        self.lbms_redemptions = pd.concat([self.lbms_redemptions,analytics.lbms_redemptions])
+        self.lbms_users_points = pd.concat([self.lbms_users_points,analytics.lbms_users_points])
+        
+        self.marketplace_margins = pd.concat([self.marketplace_margins,analytics.marketplace_margins])
+        self.marketplace_markups_det = pd.concat([self.marketplace_markups_det,analytics.marketplace_markups_det])
+
+        self.push_execution_frame = pd.concat([self.push_execution_frame,analytics.push_execution_frame])
+        print("Done with merge")
+
+
     def lbms_process_data(self, client_config, data):
 
         client_code = client_config.client_code
         date = str(data.month)+"/"+str(data.year)
 
-        try:
-            PROD = "LBMS"
-            BIZ = "Corporate Loyalty"
-            # set the FX converter from client's point value and local ccy
-            fx = FXConverter(
-                point_value=client_config.lbms_configuration.point_value_to_local_ccy,
-                ccy_code=client_config.lbms_configuration.local_ccy
+    
+        PROD = "LBMS"
+        BIZ = "Corporate Loyalty"
+        # set the FX converter from client's point value and local ccy
+        fx = FXConverter(
+            point_value=client_config.lbms_configuration.point_value_to_local_ccy,
+            ccy_code=client_config.lbms_configuration.local_ccy
+        )
+        # Top Level Metrics
+        metrics = data.metrics
+
+        points_accrual_df = metrics.GetPointsAccrualDataFrame(fx)
+        points_accrual_df = points_accrual_df.sort_values(
+            by=["Points Accrued ($)"], ascending=False)
+        gmv = points_accrual_df["GMV ($)"].sum()
+        items = []
+        items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
+                        "total_points", metrics.lbms_state.total_points))
+        items.append(mk_mf_item(client_code, date, BIZ, PROD,
+                        "metrics", "points_accrued", metrics.points_accrued))
+        items.append(mk_mf_item(client_code, date, BIZ, PROD,
+                        "metrics", "points_redeemed", metrics.points_redeemed))
+        items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
+                        "total_points_std_usd", fx.point_to_cst_usd(metrics.lbms_state.total_points)))
+        items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
+                        "points_accrued_std_usd", fx.point_to_cst_usd(metrics.points_accrued)))
+        items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
+                        "points_redeemed_std_usd", fx.point_to_cst_usd(metrics.points_redeemed)))
+        items.append(mk_mf_item(client_code, date, BIZ, PROD,
+                        "metrics", "total_users", metrics.lbms_state.total_users))
+        items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
+                        "accrual_active_users", metrics.customers_activity.earned_points))
+        items.append(mk_mf_item(client_code, date, BIZ,
+                        PROD, "metrics", "accrual_gmv", gmv))
+
+        df_main = pd.DataFrame(items, columns=MAIN_FRAME_COLUMNS)
+        self.main_frame = pd.concat([self.main_frame, df_main])
+
+        # push to the accrual frame
+        acc_items = []
+        for channel in metrics.points_accrued_per_channel.keys():
+            for product in metrics.points_accrued_per_channel[channel]:
+                acc_items.append(
+                    {
+                        "Client": client_code,
+                        "Date": date,
+                        "Channel": channel.value,
+                        "Product": product.product_code,
+                        "Points Accrued": product.points_accrued,
+                        "Points Accrued ($)": fx.point_to_cst_usd(product.points_accrued),
+                        "GMV ($)": fx.local_to_cst_usd(product.gmv),
+                        "Points Expired ($)": fx.point_to_cst_usd(product.points_expired)
+                    }
+                )
+
+        df_accrual = pd.DataFrame(acc_items, columns=ACCRUALS_COLUMNS)
+        self.lbms_accruals = pd.concat([self.lbms_accruals, df_accrual])
+
+        # push to the redemption frame
+        red_items = []
+        for option in metrics.points_redeemed_per_redemption_option.keys():
+            stat = metrics.points_redeemed_per_redemption_option[option]
+
+            red_items.append(
+                {
+                    "Client": client_code,
+                    "Date": date,
+                    "Redemption Option": option,
+                    "Points Redeemed": stat.sum,
+                    "Points Redeemed ($)": fx.point_to_cst_usd(stat.sum),
+                    "Number Transactions": stat.count
+                }
             )
-            # Top Level Metrics
-            metrics = data.metrics
 
-            points_accrual_df = metrics.GetPointsAccrualDataFrame(fx)
-            points_accrual_df = points_accrual_df.sort_values(
-                by=["Points Accrued ($)"], ascending=False)
-            gmv = points_accrual_df["GMV ($)"].sum()
-            items = []
-            items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
-                         "total_points", metrics.lbms_state.total_points))
-            items.append(mk_mf_item(client_code, date, BIZ, PROD,
-                         "metrics", "points_accrued", metrics.points_accrued))
-            items.append(mk_mf_item(client_code, date, BIZ, PROD,
-                         "metrics", "points_redeemed", metrics.points_redeemed))
-            items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
-                         "total_points_std_usd", fx.point_to_cst_usd(metrics.lbms_state.total_points)))
-            items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
-                         "points_accrued_std_usd", fx.point_to_cst_usd(metrics.points_accrued)))
-            items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
-                         "points_redeemed_std_usd", fx.point_to_cst_usd(metrics.points_redeemed)))
-            items.append(mk_mf_item(client_code, date, BIZ, PROD,
-                         "metrics", "total_users", metrics.lbms_state.total_users))
-            items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
-                         "accrual_active_users", metrics.customers_activity.earned_points))
-            items.append(mk_mf_item(client_code, date, BIZ,
-                         PROD, "metrics", "accrual_gmv", gmv))
+        df_redemption = pd.DataFrame(red_items, columns=REDEMPTION_COLUMNS)
+        self.lbms_redemptions = pd.concat(
+            [self.lbms_redemptions, df_redemption])
 
-            df_main = pd.DataFrame(items, columns=MAIN_FRAME_COLUMNS)
-            self.main_frame = pd.concat([self.main_frame, df_main])
+        # push to user points
+        up_items = []
+        users_tiering = metrics.lbms_state.users_points_tiering
+        points_tiering = metrics.lbms_state.points_points_tiering
+        nb_items = len(users_tiering.bounds)
 
-            # push to the accrual frame
-            acc_items = []
-            for channel in metrics.points_accrued_per_channel.keys():
-                for product in metrics.points_accrued_per_channel[channel]:
-                    acc_items.append(
-                        {
-                            "Client": client_code,
-                            "Date": date,
-                            "Channel": channel.value,
-                            "Product": product.product_code,
-                            "Points Accrued": product.points_accrued,
-                            "Points Accrued ($)": fx.point_to_cst_usd(product.points_accrued),
-                            "GMV ($)": fx.local_to_cst_usd(product.gmv),
-                            "Points Expired ($)": fx.point_to_cst_usd(product.points_expired)
-                        }
-                    )
-
-            df_accrual = pd.DataFrame(acc_items, columns=ACCRUALS_COLUMNS)
-            self.lbms_accruals = pd.concat([self.lbms_accruals, df_accrual])
-
-            # push to the redemption frame
-            red_items = []
-            for option in metrics.points_redeemed_per_redemption_option.keys():
-                stat = metrics.points_redeemed_per_redemption_option[option]
-
-                red_items.append(
-                    {
-                        "Client": client_code,
-                        "Date": date,
-                        "Redemption Option": option,
-                        "Points Redeemed": stat.sum,
-                        "Points Redeemed ($)": fx.point_to_cst_usd(stat.sum),
-                        "Number Transactions": stat.count
-                    }
-                )
-
-            df_redemption = pd.DataFrame(red_items, columns=REDEMPTION_COLUMNS)
-            self.lbms_redemptions = pd.concat(
-                [self.lbms_redemptions, df_redemption])
-
-            # push to user points
-            up_items = []
-            users_tiering = metrics.lbms_state.users_points_tiering
-            points_tiering = metrics.lbms_state.points_points_tiering
-            nb_items = len(users_tiering.bounds)
-
-            for i in range(nb_items):
-
-                up_items.append(
-                    {
-                        "Client": client_code,
-                        "Date": date,
-                        "Points Value Threashold ($)": fx.point_to_cst_usd(users_tiering.bounds[i].up),
-                        "Number Users": users_tiering.bounds[i].amount,
-                        "Points Value ($)": fx.point_to_cst_usd(points_tiering.bounds[i].amount)
-
-                    }
-                )
+        for i in range(nb_items):
 
             up_items.append(
                 {
                     "Client": client_code,
                     "Date": date,
-                    "Points Value Threashold ($)": float('inf'),
-                    "Number Users": users_tiering.max_tier_amount,
-                    "Points Value ($)": fx.point_to_cst_usd(points_tiering.max_tier_amount)
+                    "Points Value Threashold ($)": fx.point_to_cst_usd(users_tiering.bounds[i].up),
+                    "Number Users": users_tiering.bounds[i].amount,
+                    "Points Value ($)": fx.point_to_cst_usd(points_tiering.bounds[i].amount)
 
                 }
             )
-            df_up = pd.DataFrame(up_items, columns=USERS_POINTS_COLUMNS)
-            self.lbms_users_points = pd.concat([self.lbms_users_points, df_up])
 
-        except:
-            traceback.print_exc()
-            self.missing_data_points.append((client_code, date))
+        up_items.append(
+            {
+                "Client": client_code,
+                "Date": date,
+                "Points Value Threashold ($)": float('inf'),
+                "Number Users": users_tiering.max_tier_amount,
+                "Points Value ($)": fx.point_to_cst_usd(points_tiering.max_tier_amount)
+
+            }
+        )
+        df_up = pd.DataFrame(up_items, columns=USERS_POINTS_COLUMNS)
+        self.lbms_users_points = pd.concat([self.lbms_users_points, df_up])
+
+      
 
     def lbms_calculate_revenues(self, client_config, month, year):
         client = client_config.client_code
@@ -378,9 +460,9 @@ class ClientsAnalytics:
                             "Business Line": cl.business_line.value,
                             "Product": cl.product_line.value,
                             "Revenue Type": "redemption_cost",
-                            "Gross Amount ($)": fx.ccy_to_cst_usd(cost, dec.currency_code),
-                            "Net Amount ($)": 0,
-                            "Base Amount": cost,
+                            "Gross Amount ($)": Decimal(fx.ccy_to_cst_usd(cost, dec.currency_code)),
+                            "Net Amount ($)": Decimal(0),
+                            "Base Amount": Decimal(cost),
                             "Base Currency": dec.currency_code,
                             "All Tags": cl.tags,
                             "Net Offset": Decimal('1'),
@@ -394,9 +476,9 @@ class ClientsAnalytics:
                             "Business Line": cl.business_line.value,
                             "Product": cl.product_line.value,
                             "Revenue Type": "redemption_fee",
-                            "Gross Amount ($)": fx.ccy_to_cst_usd(fee, dec.currency_code),
-                            "Net Amount ($)": fx.ccy_to_cst_usd(fee, dec.currency_code),
-                            "Base Amount": fee,
+                            "Gross Amount ($)": Decimal(fx.ccy_to_cst_usd(fee, dec.currency_code)),
+                            "Net Amount ($)": Decimal(fx.ccy_to_cst_usd(fee, dec.currency_code)),
+                            "Base Amount": Decimal(fee),
                             "Base Currency": dec.currency_code,
                             "All Tags": cl.tags,
                             "Net Offset": Decimal('0'),
@@ -466,29 +548,38 @@ class ClientsAnalytics:
             )
 
             marketplace_client_code = client_config.marketplace_configuration.marketplace_code
+            
             # margins
+            # filter for the client
+            df_margins = data.margins_frame[data.margins_frame['Client']== marketplace_client_code]
+            if (len(df_margins.index)>0):
+            #replace by client's code            
+                df_margins[(df_margins['Client']== marketplace_client_code)].replace(marketplace_client_code, client_code, inplace=True)
+                #calculate $ amount
+                # df_margins["Margin ($)"] = np.nan
+                # df_margins["Transactions Amount ($)"] = np.nan
+                
+                df_margins["Margin ($)"] = df_margins.apply(lambda row: fx.ccy_to_cst_usd(row["Margin Amount"], row["Currency Code"]),axis=1)
+                df_margins["Transactions Amount ($)"] = df_margins.apply(lambda row: fx.ccy_to_cst_usd(row["Transactions Amount"], row["Currency Code"]),axis=1)           
+                self.marketplace_margins = df_margins
 
-            df_margins = data.margins_frame
-            self.marketplace_margins = df_margins[df_margins['Client']
-                                                  == marketplace_client_code]
-            self.marketplace_margins['Client'] = self.marketplace_margins['Client'].replace(
-                marketplace_client_code, client_code)
-            self.marketplace_margins["Margin ($)"] = self.marketplace_margins.apply(
-                lambda row: fx.ccy_to_cst_usd(row["Margin Amount"], row["Currency Code"]), axis=1)
-            self.marketplace_margins["Transactions Amount ($)"] = self.marketplace_margins.apply(
-                lambda row: fx.ccy_to_cst_usd(row["Transactions Amount"], row["Currency Code"]), axis=1)
-            # markups
+            # # markups
+            
             df_markups = data.markups_det_frame
-            self.marketplace_markups_det = df_markups[df_markups['Client']
-                                                      == marketplace_client_code]
-            self.marketplace_markups_det['Client'] = self.marketplace_markups_det['Client'].replace(
-                marketplace_client_code, client_code)
-            self.marketplace_markups_det["Markup ($)"] = self.marketplace_markups_det.apply(
-                lambda row: fx.ccy_to_cst_usd(row["Markup Amount"], row["Currency Code"]), axis=1)
-            self.marketplace_markups_det["Transactions Amount ($)"] = self.marketplace_markups_det.apply(
-                lambda row: fx.ccy_to_cst_usd(row["Transactions Amount"], row["Currency Code"]), axis=1)
+            if (len(df_markups.index)>0):
+                df_markups[(df_markups['Client']== marketplace_client_code)].replace(marketplace_client_code, client_code, inplace=True)
+                #calculate $ amount
+                # df_markups["Margin ($)"] = ""
+                # df_markups["Margin ($)"] = np.nan
+                # df_markups["Transactions Amount ($)"] = np.nan
+
+                df_markups["Markup ($)"] = df_markups.apply(lambda row: fx.ccy_to_cst_usd(row["Markup Amount"], row["Currency Code"]),axis=1)
+                df_markups["Transactions Amount ($)"] = df_markups.apply(lambda row: fx.ccy_to_cst_usd(row["Transactions Amount"], row["Currency Code"]),axis=1)           
+            
+                self.marketplace_markups_det = df_markups
 
         except:
+            traceback.print_exc()
             raise Exception("Could not process the marketplace report")
 
     def marketplace_calculate_revenues(self, client_config, month, year):
@@ -576,20 +667,7 @@ class ClientsAnalytics:
         df_secondary = pd.DataFrame(items, columns=MAIN_FRAME_COLUMNS)
         self.main_frame = pd.concat([self.main_frame, df_secondary])
 
-    def save(self):
-        bucket = 'dra-clients-analyics-serialized'
-        key = 'analytics.pkl'
-        pickle_byte_obj = pickle.dumps(self)
-        s3_resource = boto3.resource('s3')
-        s3_resource.Object(bucket, key).put(Body=pickle_byte_obj)
-
-    @staticmethod
-    def Load():
-        bucket = 'dra-clients-analyics-serialized'
-        key = 'analytics.pkl'       
-        s3 = boto3.resource('s3')
-        return pickle.loads(s3.Bucket(bucket).Object(key).get()['Body'].read())
-
+  
 
 
 def mk_mf_item(client_code, date, business, product, item_type, item_id, item_value):

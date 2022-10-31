@@ -6,9 +6,10 @@ import traceback
 import requests
 import boto3
 
-
+import sys
 from client_configuration_model import ClientConfiguration, CLIENT_CONFIG_BUCKET, ClientConfigurationManager
 from clients_analytics import ClientsAnalytics
+from clients_analytics_manager import ClientAnalyticsManager
 from product_lbms_model import LBMSMonthlyData
 from fx_conversion import FXConverter
 from revenue_model import BusinessLine, ProductLine, RevenueClassification
@@ -21,7 +22,8 @@ import client_configuration_model as ccm
 from product_lbms_controller import BuildMonthlyLBMSData
 from operator import attrgetter
 import pandas as pd
-
+import warnings
+warnings.filterwarnings('ignore')
 
 def MakeConfigfileSample():
     cc = ccm.ClientConfiguration("ABC",
@@ -77,28 +79,27 @@ def MakeConfigfileSample():
 
 
 ######## LBMS Monthly Data Build ######
-config_manager = ClientConfigurationManager()
-config_manager.Init()
-clients = [
-    'BDI',
-    "BJB",
-    "BML",
-    "BNI",
-    "BRI",
-    "CBI",
-    "CBQ",
-    "commbank",
-    "EBL",
-    "GBK",
-    "QNB",
-]
+# config_manager = ClientConfigurationManager()
+# config_manager.Init()
+# clients = [
+#     'BDI',
+#     "BJB",
+#     "BML",
+#     "BNI",
+#     "BRI",
+#     "CBI",
+#     "CBQ",
+#     "commbank",
+#     "EBL",
+#     "GBK",
+#     "QNB",
+# ]
 
-months = [4, 5, 6, 7, 8, 9]
+# months = [4, 5, 6, 7, 8, 9]
 
 # for c in clients:
 #     for m in months:
 #         print(c + "/" + str(m))
-#         # config = config_manager.LoadConfig('BDI',m,2022)
 #         try:
 #             lbms_data = BuildMonthlyLBMSData(c, m, 2022)
 #         except:
@@ -128,9 +129,23 @@ months = [4, 5, 6, 7, 8, 9]
 
 # cl_analytics.save()
 
-cl_analytics = ClientsAnalytics.Load()
+manager = ClientAnalyticsManager()
 
-print(cl_analytics.revenue_frame)
+manager.BuildMonthlyClientAnalytics(4,2022)
+manager.BuildMonthlyClientAnalytics(5,2022)
+manager.BuildMonthlyClientAnalytics(6,2022)
+manager.BuildMonthlyClientAnalytics(7,2022)
+manager.BuildMonthlyClientAnalytics(8,2022)
+anal = manager.BuildMonthlyClientAnalytics(9,2022)
+
+
+
+analytics = manager.LoadClientAnalytics(['4/2022','5/2022','6/2022','7/2022','8/2022','9/2022'])
+print(analytics.revenue_frame)
+
+# cl_analytics = ClientsAnalytics.Load()
+
+# print(cl_analytics.revenue_frame)
 
 
 # config = config_manager.LoadConfig('BNI',7,2022)
