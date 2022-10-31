@@ -81,18 +81,18 @@ CLIENT_REGIONAL_CONFIG = {
         }],
         "India": [{
             "code": "cardbuzz",
-            "name": " Bank Danamon",
+            "name": "CardBuzz",
             "live": True,
             "logo": "..."
         }],
         "Bengladesh": [{
             "code": "EBL",
-            "name": " Bank Danamon",
+            "name": "Eastern Bank Limited",
             "live": True,
             "logo": "..."
         }, {
             "code": "MTB",
-            "name": " Bank Danamon",
+            "name": "Mutual Trust Bank",
             "live": True,
             "logo": "..."
         }]
@@ -101,7 +101,7 @@ CLIENT_REGIONAL_CONFIG = {
         "UAE": [
             {
                 "code": "CBI",
-                "name": " Bank Danamon",
+                "name": "Commercial Bank International",
                 "live": True,
                 "logo": "..."
             },
@@ -142,6 +142,12 @@ CLIENT_REGIONAL_CONFIG = {
             "code": "BOK",
             "name": "Bank of Kigali",
             "live": False,
+            "logo": "..."
+        }],
+        "South Africa":[{
+            "code": "Visa Africa",
+            "name": "Visa Africa",
+            "live": True,
             "logo": "..."
         }]
     },
