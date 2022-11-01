@@ -21,12 +21,15 @@ from product_marketplace_controller import BuildMarketplaceReport
 # import client_configuration_model as ccm
 # from product_lbms_controller import BuildMonthlyLBMSData
 
+from meta_data import GetClientMapDataFrame, GetClientMapList
 
-report = BuildMarketplaceReport(9,2022)
+# report = BuildMarketplaceReport(9,2022)
 
-print(report.margins_frame)
+# print(report.margins_frame)
 
 
+x = GetClientMapDataFrame()
+print(x)
 
 
 

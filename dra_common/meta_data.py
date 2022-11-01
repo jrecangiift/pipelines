@@ -1,5 +1,9 @@
 from enum import Enum
 import pandas as pd
+from typing import List
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
+import boto3
 
 class BusinessLine(str,Enum):
     corporate_loyalty = "Corporate Loyalty"
@@ -26,6 +30,23 @@ class ServiceType(str,Enum):
     @classmethod
     def list(cls):
         return list(map(lambda c: c.value, cls))
+
+
+@dataclass_json
+@dataclass
+class Client:
+    code:str
+    region:str
+    country:str
+    name:str
+    live:bool
+    logo:str
+
+@dataclass_json
+@dataclass
+class ClientList:
+    clients: List[Client]
+    
 
 
 CLIENT_REGIONAL_CONFIG = {
@@ -157,22 +178,43 @@ CLIENT_REGIONAL_CONFIG = {
 
 }
 
+# def GetClientMapList():
+#     entries = []
+#     for region, v in CLIENT_REGIONAL_CONFIG.items():
+#         for country, clientList in v.items():
+#             for client in clientList:
+#                 entries.append(
+#                     {"Client": client['code'],
+#                     "Region": region,
+#                     "Country": country,
+#                     "Name": client['name'],
+#                     "Live": client['live'],
+#                     "Logo": client['logo']
+#                     })
+#     return entries
+
 def GetClientMapList():
+    key="all_clients.json"
+    s3_client = boto3.client('s3')
+    data = s3_client.get_object(Bucket='dra-config', Key=key)
+    contents = data['Body'].read()
+    
+    cl_lst = ClientList.from_json(contents)
+    lst = cl_lst.clients
     entries = []
-    for region, v in CLIENT_REGIONAL_CONFIG.items():
-        for country, clientList in v.items():
-            for client in clientList:
-                entries.append(
-                    {"Client": client['code'],
-                    "Region": region,
-                    "Country": country,
-                    "Name": client['name'],
-                    "Live": client['live'],
-                    "Logo": client['logo']
-                    })
+    # print(lst)
+    for cl in lst:
+        entries.append(
+              {
+                "Client": cl.code,
+                "Region": cl.region,
+                "Country": cl.country,
+                "Name": cl.name,
+                "Live": cl.live,
+                "Logo": cl.logo
+              }
+        )
     return entries
-
-
 
 def GetClientMapDataFrame():
     entries = GetClientMapList()
