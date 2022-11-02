@@ -321,131 +321,155 @@ if st.session_state["authentication_status"]:
                 col1, col2 = st.columns(2)
                 col1.plotly_chart(fig1)
                 col2.plotly_chart(fig2)    
-            st.markdown("""---""")
-            st.markdown("#### :arrow_heading_up:Accruals")
-
-            # AgGrid(caa.lbms_accruals)
-            df_acc = analytics.lbms_accruals[(analytics.lbms_accruals["Date"]==spotDate) & (analytics.lbms_accruals["Client"]==client)]
             
-            df_acc["GMV ($)"]= df_acc["GMV ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
-            df_acc["Points Accrued ($)"]= df_acc["Points Accrued ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
-            df_acc["Points Expired ($)"]= df_acc["Points Expired ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
-            with st.expander("Accrual Data"):
-            
+            #### LBMS Product Reporting #####
+            if "LBMS" in spot_products:
+                st.markdown("""---""")
+                st.subheader("🤝LBMS")
                 
-                gb = GridOptionsBuilder.from_dataframe(df_acc)
-                gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
-                gb.configure_side_bar()
-                gb.configure_column("Client",hide=True)
-                gb.configure_column("Date",hide=True)
-                gb.configure_column("Channel",rowGroup=True,hide=True, rowGroupIndex= 0)
-                gb.configure_column("GMV ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
-                gb.configure_column("Points Accrued ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
-                gb.configure_column("Points Expired ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
-                gridoptions = gb.build()
-                response = AgGrid(
-                    df_acc,
-                    gridOptions=gridoptions,
-                    height=300,
-                    enable_enterprise_modules=True,
-                    update_mode=GridUpdateMode.NO_UPDATE,
-                    fit_columns_on_grid_load=False,
-                    header_checkbox_selection_filtered_only=True,
-                    allow_unsafe_jscode=True
-                    )
+                st.markdown("##### :arrow_heading_up:Accruals")
 
-            with st.expander("Accrual Plots"):
-
-                col1, col2 = st.columns(2)   
-                fig = px.sunburst(df_acc[["Channel","Points Accrued ($)", "Product"]], path=['Channel', 'Product'], values="Points Accrued ($)",
-                color="Channel", hover_data=["Points Accrued ($)"],height=400,width=500,title="Channels & Products Accruals")
-                col1.plotly_chart(fig)
-                fig2 = px.scatter(df_acc[["Channel","Points Accrued ($)", "GMV ($)"]], x="Points Accrued ($)", y="GMV ($)", color="Channel",height=400,width=500,title="Channels & Products Accruals")
-                col2.plotly_chart(fig2)
-
-            # st.markdown("""---""")
-            st.subheader("	:arrow_heading_down:Redemptions")
-
-            df_red = analytics.lbms_redemptions[(analytics.lbms_redemptions["Date"]==spotDate) & (analytics.lbms_redemptions["Client"]==client)]
-            df_red["Average Transaction ($)"] = df_red["Points Redeemed ($)"]/df_red["Number Transactions"]
-            df_red["Points Redeemed ($)"]= df_red["Points Redeemed ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
-            
-            with st.expander("Redemption Data"):
-            
+                # AgGrid(caa.lbms_accruals)
+                df_acc = analytics.lbms_accruals[(analytics.lbms_accruals["Date"]==spotDate) & (analytics.lbms_accruals["Client"]==client)]
                 
-                gb = GridOptionsBuilder.from_dataframe(df_red)
-                gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
-                gb.configure_side_bar()
-                gb.configure_column("Client",hide=True)
-                gb.configure_column("Date",hide=True)
-                gb.configure_column("Average Transaction ($)")
-                gb.configure_column("Redemption Option")
-                gb.configure_column("Points Redeemed ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
-                gb.configure_column("Number Transactions", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+                df_acc["GMV ($)"]= df_acc["GMV ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
+                df_acc["Points Accrued ($)"]= df_acc["Points Accrued ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
+                df_acc["Points Expired ($)"]= df_acc["Points Expired ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
+                with st.expander("Accrual Data"):
                 
-                gridoptions = gb.build()
-                response = AgGrid(
-                    df_red,
-                    gridOptions=gridoptions,
-                    height=300,
-                    enable_enterprise_modules=True,
-                    update_mode=GridUpdateMode.NO_UPDATE,
-                    fit_columns_on_grid_load=False,
-                    header_checkbox_selection_filtered_only=True,
-                    allow_unsafe_jscode=True,
-                    license_key=st.secrets["aggrid_license"]
-                    )
+                    
+                    gb = GridOptionsBuilder.from_dataframe(df_acc)
+                    gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
+                    gb.configure_side_bar()
+                    gb.configure_column("Client",hide=True)
+                    gb.configure_column("Date",hide=True)
+                    gb.configure_column("Channel",rowGroup=True,hide=True, rowGroupIndex= 0)
+                    gb.configure_column("GMV ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+                    gb.configure_column("Points Accrued ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+                    gb.configure_column("Points Expired ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+                    gridoptions = gb.build()
+                    response = AgGrid(
+                        df_acc,
+                        gridOptions=gridoptions,
+                        height=300,
+                        enable_enterprise_modules=True,
+                        update_mode=GridUpdateMode.NO_UPDATE,
+                        fit_columns_on_grid_load=False,
+                        header_checkbox_selection_filtered_only=True,
+                        allow_unsafe_jscode=True
+                        )
 
-            with st.expander("Redemption Plots"):  
+                with st.expander("Accrual Plots"):
 
-                col1, col2 = st.columns(2)   
-                fig1 = px.bar(df_red, x="Redemption Option", y="Points Redeemed ($)", color="Redemption Option", title="Redemptions by Option",height=400,
-                width=500)
-                fig1.update_layout(barmode='relative')
-                col1.plotly_chart(fig1)  
-                fig2 = px.scatter(df_red[["Redemption Option","Points Redeemed ($)","Average Transaction ($)", "Number Transactions"]], 
-                x="Number Transactions", y="Average Transaction ($)", color="Redemption Option",height=400,width=500,title="Value / Number Transaction Scatter Plot" )
-                col2.plotly_chart(fig2)
+                    col1, col2 = st.columns(2)   
+                    fig = px.sunburst(df_acc[["Channel","Points Accrued ($)", "Product"]], path=['Channel', 'Product'], values="Points Accrued ($)",
+                    color="Channel", hover_data=["Points Accrued ($)"],height=400,width=500,title="Channels & Products Accruals")
+                    col1.plotly_chart(fig)
+                    fig2 = px.scatter(df_acc[["Channel","Points Accrued ($)", "GMV ($)"]], x="Points Accrued ($)", y="GMV ($)", color="Channel",height=400,width=500,title="Channels & Products Accruals")
+                    col2.plotly_chart(fig2)
 
-            # st.markdown("""---""")
-            st.subheader(":family:Points Cohort Analytics")
-            df_up = analytics.lbms_users_points[(analytics.lbms_users_points["Date"]==spotDate)&  (analytics.lbms_users_points["Client"]==client)]
-            df_up["Average Points ($) in Cohort"]= df_up["Points Value ($)"] / df_up["Number Users"]
-            df_up["Points Value ($)"]= df_up["Points Value ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
-            df_up["Average Points ($) in Cohort"]= df_up["Average Points ($) in Cohort"].apply(lambda x: x.quantize(THREE_DECIMAL))
-            df_up = df_up.sort_values(["Average Points ($) in Cohort"], ascending=[False])
-            # df_up.sort_index('Average Points ($) in Cohort')
-            with st.expander("Points Cohort Data"):
+                # st.markdown("""---""")
+                st.markdown("#####	:arrow_heading_down:Redemptions")
+
+                df_red = analytics.lbms_redemptions[(analytics.lbms_redemptions["Date"]==spotDate) & (analytics.lbms_redemptions["Client"]==client)]
+                df_red["Average Transaction ($)"] = df_red["Points Redeemed ($)"]/df_red["Number Transactions"]
+                df_red["Points Redeemed ($)"]= df_red["Points Redeemed ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
                 
-                gb = GridOptionsBuilder.from_dataframe(df_up)
-                gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
-                gb.configure_side_bar()
-                gb.configure_column("Average Points ($) in Cohort",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
-                gb.configure_column("Client",hide=True)
-                gb.configure_column("Date",hide=True)
-                gb.configure_column("Points Value Threashold ($)",hide=True)
-                gb.configure_column("Points Value ($)",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
-
+                with st.expander("Redemption Data"):
                 
-                gridoptions = gb.build()
-                response = AgGrid(
-                    df_up,
-                    gridOptions=gridoptions,
-                    height=300,
-                    enable_enterprise_modules=True,
-                    update_mode=GridUpdateMode.NO_UPDATE,
-                    fit_columns_on_grid_load=False,
-                    header_checkbox_selection_filtered_only=True,
-                    allow_unsafe_jscode=True,
-                    license_key=st.secrets["aggrid_license"]
-                    )
+                    
+                    gb = GridOptionsBuilder.from_dataframe(df_red)
+                    gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
+                    gb.configure_side_bar()
+                    gb.configure_column("Client",hide=True)
+                    gb.configure_column("Date",hide=True)
+                    gb.configure_column("Average Transaction ($)")
+                    gb.configure_column("Redemption Option")
+                    gb.configure_column("Points Redeemed ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+                    gb.configure_column("Number Transactions", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+                    
+                    gridoptions = gb.build()
+                    response = AgGrid(
+                        df_red,
+                        gridOptions=gridoptions,
+                        height=300,
+                        enable_enterprise_modules=True,
+                        update_mode=GridUpdateMode.NO_UPDATE,
+                        fit_columns_on_grid_load=False,
+                        header_checkbox_selection_filtered_only=True,
+                        allow_unsafe_jscode=True,
+                        license_key=st.secrets["aggrid_license"]
+                        )
+
+                with st.expander("Redemption Plots"):  
+
+                    col1, col2 = st.columns(2)   
+                    fig1 = px.bar(df_red, x="Redemption Option", y="Points Redeemed ($)", color="Redemption Option", title="Redemptions by Option",height=400,
+                    width=500)
+                    fig1.update_layout(barmode='relative')
+                    col1.plotly_chart(fig1)  
+                    fig2 = px.scatter(df_red[["Redemption Option","Points Redeemed ($)","Average Transaction ($)", "Number Transactions"]], 
+                    x="Number Transactions", y="Average Transaction ($)", color="Redemption Option",height=400,width=500,title="Value / Number Transaction Scatter Plot" )
+                    col2.plotly_chart(fig2)
+
+                # st.markdown("""---""")
+                st.markdown("##### :family:Points Cohort Analytics")
+                df_up = analytics.lbms_users_points[(analytics.lbms_users_points["Date"]==spotDate)&  (analytics.lbms_users_points["Client"]==client)]
+                df_up["Average Points ($) in Cohort"]= df_up["Points Value ($)"] / df_up["Number Users"]
+                df_up["Points Value ($)"]= df_up["Points Value ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
+                df_up["Average Points ($) in Cohort"]= df_up["Average Points ($) in Cohort"].apply(lambda x: x.quantize(THREE_DECIMAL))
+                df_up = df_up.sort_values(["Average Points ($) in Cohort"], ascending=[False])
+                # df_up.sort_index('Average Points ($) in Cohort')
+                with st.expander("Points Cohort Data"):
+                    
+                    gb = GridOptionsBuilder.from_dataframe(df_up)
+                    gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
+                    gb.configure_side_bar()
+                    gb.configure_column("Average Points ($) in Cohort",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+                    gb.configure_column("Client",hide=True)
+                    gb.configure_column("Date",hide=True)
+                    gb.configure_column("Points Value Threashold ($)",hide=True)
+                    gb.configure_column("Points Value ($)",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+
+                    
+                    gridoptions = gb.build()
+                    response = AgGrid(
+                        df_up,
+                        gridOptions=gridoptions,
+                        height=300,
+                        enable_enterprise_modules=True,
+                        update_mode=GridUpdateMode.NO_UPDATE,
+                        fit_columns_on_grid_load=False,
+                        header_checkbox_selection_filtered_only=True,
+                        allow_unsafe_jscode=True,
+                        license_key=st.secrets["aggrid_license"]
+                        )
 
 
-            with st.expander("Point Value Analytics Chart"):
-                fig2 = px.scatter(df_up[["Average Points ($) in Cohort","Number Users","Points Value ($)"]], x="Average Points ($) in Cohort", y="Number Users"
-                ,title="Cohort Points Scatter Plot")
-                st.plotly_chart(fig2)
+                with st.expander("Point Value Analytics Chart"):
+                    fig2 = px.scatter(df_up[["Average Points ($) in Cohort","Number Users","Points Value ($)"]], x="Average Points ($) in Cohort", y="Number Users"
+                    ,title="Cohort Points Scatter Plot")
+                    st.plotly_chart(fig2)
 
+            if "Marketplace" in spot_products:
+                st.markdown("""---""")
+                st.subheader("	🛍️ Marketplace")
+
+                marketplace_code = spot_client_config.marketplace_configuration.marketplace_code
+                # st.write(marketplace_code)
+                st.markdown("##### ↪️ Margins")
+
+                marg_frame = analytics.marketplace_margins
+                marg_frame = marg_frame[(marg_frame["Client"]==marketplace_code)]
+
+                AgGrid(marg_frame)
+
+                st.markdown("#####	↩️ Markups")
+
+                mark_frame = analytics.marketplace_markups_det
+                mark_frame = mark_frame[(mark_frame["Client"]==marketplace_code)]
+
+                AgGrid(mark_frame)
 
                 
 

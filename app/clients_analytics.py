@@ -581,17 +581,57 @@ class ClientsAnalytics:
             raise Exception("Could not process the marketplace report")
 
     def marketplace_calculate_revenues(self, client_config, month, year):
-        #margins and markups
+        
+        
+        
+        # scan recurring fixed revenue declarations for Marketplace product line
+        client = client_config.client_code
+        date = str(month)+'/'+str(year)
 
-        client_code = client_config.client_code
-        date = str(month)+"/"+str(year)
+        # Revenues - calculate revenues from the lbms data and client config revenue declaration
+        rev_items = []
+        # Single Fixed Revenue - throw an error. LBMS product does not incur single fixed (put under services)
+
+        fx = FXConverter(
+            point_value=client_config.lbms_configuration.point_value_to_local_ccy,
+            ccy_code=client_config.lbms_configuration.local_ccy
+        )
+
+        for dec in client_config.revenues.recurring_fixed_revenues:
+            cl = dec.classification
+            if cl.product_line == "Marketplace":
+                cl.tags["frequency"] = "monthly"
+                cl.tags["variability"] = "fixed"
+                rev_items.append(
+                    {
+                        "Client": client,
+                        "Date": date,
+                        "Business Line": cl.business_line.value,
+                        "Product": cl.product_line.value,
+                        "Revenue Type": cl.tags["type"],
+                        "Gross Amount ($)": fx.ccy_to_cst_usd(dec.amount, dec.currency_code),
+                        "Net Amount ($)": fx.ccy_to_cst_usd(dec.amount, dec.currency_code)*(1-dec.net_offset),
+                        "Base Amount": dec.amount,
+                        "Base Currency": dec.currency_code,
+                        "All Tags": cl.tags,
+                        "Net Offset": dec.net_offset,
+                        "Label": dec.label
+                    })
+
+        
+        
+        
+        
+        #margins and markups - TODO make it client config driven
+
+       
         BIZ = "Corporate Loyalty"
         PROD = "Marketplace"
-        rev_items = []
+        
         total_margins_cst_usd = self.marketplace_margins["Margin ($)"].sum()
         rev_items.append(
             {
-                "Client": client_code,
+                "Client": client,
                 "Date": date,
                 "Business Line": BIZ,
                 "Product": PROD,
@@ -608,7 +648,7 @@ class ClientsAnalytics:
             self.marketplace_markups_det["Markup ($)"].sum(), 0)
         rev_items.append(
             {
-                "Client": client_code,
+                "Client": client,
                 "Date": date,
                 "Business Line": BIZ,
                 "Product": PROD,
