@@ -26,6 +26,7 @@ import traceback
 import boto3
 import pickle
 import numpy as np
+import meta_data
 
 #### GLOBAL DATA FRAMES ##########################
 MAIN_FRAME_COLUMNS = ["Client", "Date", "Business Line",
@@ -43,8 +44,8 @@ USERS_POINTS_COLUMNS = ["Client", "Date", "Points Value Threashold ($)", "Number
 ##################################################
 
 #### MARKETPLACE DATA FRAMES ############################
-MARGINS_COLUMNS = ["Supplier", "Client","Date", "Margin Amount", "Currency Code","Number Transactions", "Transactions Amount","Margin ($)", "Transaction Amount ($)"]
-MARKUPS_COLUMNS =  ["Supplier", "Client","Date", "Markup Amount", "Currency Code","Number Transactions", "Transactions Amount","Markup ($)", "Transaction Amount ($)"]
+MARGINS_COLUMNS = ["Supplier", "Client","Date", "Margin Amount", "Currency Code","Number Transactions", "Transactions Amount","Margin ($)"]
+MARKUPS_COLUMNS =  ["Supplier", "Client","Date", "Markup Amount", "Currency Code","Number Transactions", "Transactions Amount","Markup ($)"]
 ##################################################
 
 
@@ -106,7 +107,7 @@ class ClientsAnalytics:
                 "Client": client,
                 "Date": date,
                 "Business Line": service.business,
-                "Product": "Service",
+                "Product": "Services",
                 "Revenue Type": service.type,
                 "Gross Amount ($)": fx.ccy_to_cst_usd(service.amount, service.currency),
                 "Net Amount ($)": fx.ccy_to_cst_usd(service.amount, service.currency),
@@ -121,28 +122,34 @@ class ClientsAnalytics:
             df = pd.DataFrame(items,columns = REVENUE_COLUMNS)
             self.revenue_frame = pd.concat([self.revenue_frame,df])
 
-            # push into the main frame - TODO group by business to explode in metrics
-            df_rev = self.revenue_frame
+        # push into the main frame - TODO group by business to explode in metrics
+        df_rev = self.revenue_frame
+
+        secondary_metrics_items = []
+
+        for business in [meta_data.BusinessLine.corporate_loyalty.value,meta_data.BusinessLine.employee_reward.value,meta_data.BusinessLine.merchant_loyalty.value]:
+
+
 
             net_revenues = df_rev[(df_rev['Client'] == client) & (df_rev['Date'] == date) & 
-            (df_rev['Product'] == "Services")]["Net Amount ($)"].sum()
+            (df_rev['Product'] == "Services") & (df_rev['Business Line'] == business)]["Net Amount ($)"].sum()
             gross_revenues = df_rev[(df_rev['Client'] == client) & (df_rev['Date'] == date) & 
-            (df_rev['Product'] == "Services")]["Gross Amount ($)"].sum()
+            (df_rev['Product'] == "Services")& (df_rev['Business Line'] == business)]["Gross Amount ($)"].sum()
 
-            secondary_metrics_items = []
+            
 
             secondary_metrics_items.append(
-                mk_mf_item(client, date, "Corporate Loyalty", "Services",
+                mk_mf_item(client, date,business, "Services",
                         "metrics", "net_revenues", net_revenues)
             )
             secondary_metrics_items.append(
-                mk_mf_item(client, date, "Corporate Loyalty", "Services",
+                mk_mf_item(client, date,business, "Services",
                         "metrics", "gross_revenues", gross_revenues)
             )
 
-            df_secondary = pd.DataFrame(
-                secondary_metrics_items, columns=MAIN_FRAME_COLUMNS)
-            self.main_frame = pd.concat([self.main_frame, df_secondary])
+        df_secondary = pd.DataFrame(
+            secondary_metrics_items, columns=MAIN_FRAME_COLUMNS)
+        self.main_frame = pd.concat([self.main_frame, df_secondary])
 
 
 

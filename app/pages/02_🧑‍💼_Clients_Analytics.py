@@ -212,13 +212,23 @@ if st.session_state["authentication_status"]:
                 image = Image.open('assets/Giift.png')
             col1.image(image, width=150)
             col2.header(v[0]["Name"])
-            
-            if "LBMS" in spot_products:
-                net_top_line += get_lbms_metrics(analytics,spotDate,"net_revenues")
-            if "LBMS" in spot_products:
-                net_top_line += get_corp_loyalty_metrics(analytics,spotDate,"Marketplace","net_revenues")
+           
+            net_top_line= analytics.main_frame[(analytics.main_frame['Client']==client) &
+            (analytics.main_frame['Date']==spotDate) & 
+            (analytics.main_frame['Identifier']=="net_revenues")]["Value"].sum()
             col3.metric("Total Monthly Net Revenue",'$ {:,.0f}'.format(net_top_line))
             
+
+            # sandbox for groupby
+
+
+            # df_rev = analytics.revenue_frame[(analytics.revenue_frame['Client']==client) &
+            # (analytics.revenue_frame['Date']==spotDate)].groupby(['Business Line'])['Net Amount ($)']
+            # print(df_rev.sum())
+            # st.write(df_rev.sum())
+            # st.write(analytics.main_frame[(analytics.main_frame['Client']==client) &
+            # (analytics.main_frame['Date']==spotDate)])
+
             # st.dataframe(analytics.main_frame)
             # AgGrid(analytics.main_frame)
 
