@@ -33,6 +33,7 @@ selected2
 
 
 os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["key"]
+print(os.environ["AWS_ACCESS_KEY_ID"])
 os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["secret"]
 os.environ["AWS_DEFAULT_REGION"] = st.secrets["region"]
 
