@@ -34,6 +34,7 @@ selected2
 
 os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["key"]
 print(os.environ["AWS_ACCESS_KEY_ID"])
+st.write(os.environ["AWS_ACCESS_KEY_ID"])
 os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["secret"]
 os.environ["AWS_DEFAULT_REGION"] = st.secrets["region"]
 
@@ -43,7 +44,8 @@ if st.session_state["authentication_status"]:
 
     
 
-
+    print(os.environ["AWS_ACCESS_KEY_ID"])
+    st.write(os.environ["AWS_ACCESS_KEY_ID"])
 
     image = Image.open('assets/analytics_logical_architecture.png')
     with st.expander("Logical Architecture"):
