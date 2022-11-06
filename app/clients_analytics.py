@@ -77,7 +77,76 @@ class ClientsAnalytics:
 
         self.lbms_finalize_metrics(client_config, month, year)
 
-            
+    def push_lbms_no_data(self,client_config, month, year):
+        print("no data")   
+        client = client_config.client_code
+        date = str(month)+'/'+str(year)
+
+        # Revenues - calculate revenues from the lbms data and client config revenue declaration
+        rev_items = []
+        # Single Fixed Revenue - throw an error. LBMS product does not incur single fixed (put under services)
+
+        fx = FXConverter(
+            point_value=client_config.lbms_configuration.point_value_to_local_ccy,
+            ccy_code=client_config.lbms_configuration.local_ccy
+        )
+
+        for dec in client_config.revenues.recurring_fixed_revenues:
+            cl = dec.classification
+            if cl.product_line == "LBMS":
+                cl.tags["frequency"] = "monthly"
+                cl.tags["variability"] = "fixed"
+                rev_items.append(
+                    {
+                        "Client": client,
+                        "Date": date,
+                        "Business Line": cl.business_line.value,
+                        "Product": cl.product_line.value,
+                        "Revenue Type": cl.tags["type"],
+                        "Gross Amount ($)": fx.ccy_to_cst_usd(dec.amount, dec.currency_code),
+                        "Net Amount ($)": fx.ccy_to_cst_usd(dec.amount, dec.currency_code)*(1-dec.net_offset),
+                        "Base Amount": dec.amount,
+                        "Base Currency": dec.currency_code,
+                        "All Tags": cl.tags,
+                        "Net Offset": dec.net_offset,
+                        "Label": dec.label
+                    })
+
+        df_rev = pd.DataFrame(rev_items, columns=REVENUE_COLUMNS)
+        self.revenue_frame = pd.concat([self.revenue_frame, df_rev])
+
+
+        # push in main frame (net and gross from rev frame)
+
+        client_code = client_config.client_code
+        date = str(month)+"/"+str(year)
+        BIZ = "Corporate Loyalty"
+        PROD = "LBMS"
+        df_rev = self.revenue_frame
+        # push second order metrics for LBMS
+        secondary_metrics_items = []
+
+        net_revenues = df_rev[(df_rev['Client'] == client_code) & (df_rev['Date'] == date) & (
+            df_rev['Business Line'] == BIZ) & (df_rev['Product'] == PROD)]["Net Amount ($)"].sum()
+        gross_revenues = df_rev[(df_rev['Client'] == client_code) & (df_rev['Date'] == date) & (
+            df_rev['Business Line'] == BIZ) & (df_rev['Product'] == PROD)]["Gross Amount ($)"].sum()
+        
+       
+        
+        secondary_metrics_items.append(
+            mk_mf_item(client_code, date, BIZ, PROD,
+                       "metrics", "net_revenues", net_revenues)
+        )
+        secondary_metrics_items.append(
+            mk_mf_item(client_code, date, BIZ, PROD, "metrics",
+                       "gross_revenues", gross_revenues)
+        )
+
+        df_secondary = pd.DataFrame(
+            secondary_metrics_items, columns=MAIN_FRAME_COLUMNS)
+        self.main_frame = pd.concat([self.main_frame, df_secondary])
+        
+             
 
     def push_marketplace_data(self, client_config, data):
         month = data.month
@@ -209,6 +278,9 @@ class ClientsAnalytics:
         if func == "accrual_active_users":
             return self.GetMetrics(client, date, "Corporate Loyalty", "LBMS", "accrual_active_users")
 
+        if func == "total_users":
+            return self.GetMetrics(client, date, "Corporate Loyalty", "LBMS", "total_users")
+
     def report_push_execution(self,client,month,year,product,success):
 
         df = pd.DataFrame([{'Client':client,'Month':month,'Year':year,'Product':product,'Success':success}])
@@ -249,9 +321,13 @@ class ClientsAnalytics:
         metrics = data.metrics
 
         points_accrual_df = metrics.GetPointsAccrualDataFrame(fx)
-        points_accrual_df = points_accrual_df.sort_values(
-            by=["Points Accrued ($)"], ascending=False)
-        gmv = points_accrual_df["GMV ($)"].sum()
+        gmv=0
+        try:
+            points_accrual_df = points_accrual_df.sort_values(
+                by=["Points Accrued ($)"], ascending=False)
+            gmv = points_accrual_df["GMV ($)"].sum()
+        except:
+            print("No accruals...")
         items = []
         items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
                         "total_points", metrics.lbms_state.total_points))
@@ -507,11 +583,16 @@ class ClientsAnalytics:
             df_rev['Business Line'] == BIZ) & (df_rev['Product'] == PROD)]["Net Amount ($)"].sum()
         gross_revenues = df_rev[(df_rev['Client'] == client_code) & (df_rev['Date'] == date) & (
             df_rev['Business Line'] == BIZ) & (df_rev['Product'] == PROD)]["Gross Amount ($)"].sum()
-        take_rate = net_revenues / \
-            self.GetMetrics(client_code, date, BIZ, PROD, "accrual_gmv")
-        net_revenue_per_active_user = net_revenues / \
-            self.GetMetrics(client_code, date, BIZ,
-                            PROD, "accrual_active_users")
+        take_rate=0
+        net_revenue_per_active_user=0
+        try:
+            take_rate = net_revenues / \
+                self.GetMetrics(client_code, date, BIZ, PROD, "accrual_gmv")
+            net_revenue_per_active_user = net_revenues / \
+                self.GetMetrics(client_code, date, BIZ,
+                                PROD, "accrual_active_users")
+        except:
+            print(" ")
         accrual_engagement_rate = self.GetMetrics(
             client_code, date, BIZ, PROD, "accrual_active_users") / self.GetMetrics(client_code, date, BIZ, PROD, "total_users")
 

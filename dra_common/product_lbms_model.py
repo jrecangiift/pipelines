@@ -61,6 +61,7 @@ class ProductAccrual:
 @dataclass
 class PointsAndCount:
     sum:int=0
+    fiats:Decimal = Decimal('0.0')
     count:int=0
 
 @dataclass_json
@@ -107,6 +108,7 @@ class LBMSMetrics:
 
     
     points_redeemed:int = 0
+    fiats_spent:Decimal = Decimal('0.0')
     
     points_accrued_per_channel: Dict[AccrualChannel,List[ProductAccrual]] = field(default_factory=dict)
 

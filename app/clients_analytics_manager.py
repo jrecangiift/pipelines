@@ -32,9 +32,13 @@ class ClientAnalyticsManager:
 
             try:          
                 if "LBMS" in config.products:
-                    lbms_data = LBMSMonthlyData.Load(client,month,year)
-                    cl_analytics.push_lbms_data(config,lbms_data)
-                    cl_analytics.report_push_execution(client,month,year,"LBMS",True)
+                    if config.lbms_configuration.mode=='no_data':
+                        cl_analytics.push_lbms_no_data(config,month,year)
+                        cl_analytics.report_push_execution(client,month,year,"LBMS",True)
+                    else:
+                        lbms_data = LBMSMonthlyData.Load(client,month,year)
+                        cl_analytics.push_lbms_data(config,lbms_data)
+                        cl_analytics.report_push_execution(client,month,year,"LBMS",True)
                     print("LBMS Analytics for: "+client + "/" + str(month)+ " successful")
             except:
                 cl_analytics.report_push_execution(client,month,year,"LBMS",False)

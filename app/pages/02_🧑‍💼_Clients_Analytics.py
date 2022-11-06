@@ -105,7 +105,7 @@ if st.session_state["authentication_status"]:
 
     ### Build the date list with x look_back
     now = datetime.datetime.today()
-    lookback_in_months = 6
+    lookback_in_months = 7
 
     list_of_dates = []
     currentMonth = now.month
@@ -125,7 +125,7 @@ if st.session_state["authentication_status"]:
         toks = date_selected.split("/")
         st.session_state["month_selected"]=toks[0]
         st.session_state["year_selected"]=toks[1]
-    
+        # st.write("month "+st.session_state["month_selected"])
         gb = GridOptionsBuilder.from_dataframe(df_client_map)
         gb.configure_selection(selection_mode="single", use_checkbox=False, header_checkbox=False)
         gb.configure_column("Region",rowGroup=True,hide=True, rowGroupIndex= 0)
@@ -213,6 +213,10 @@ if st.session_state["authentication_status"]:
             col1.image(image, width=150)
             col2.header(v[0]["Name"])
            
+            gross_top_line = analytics.main_frame[(analytics.main_frame['Client']==client) &
+            (analytics.main_frame['Date']==spotDate) & 
+            (analytics.main_frame['Identifier']=="gross_revenues")]["Value"].sum()
+
             net_top_line= analytics.main_frame[(analytics.main_frame['Client']==client) &
             (analytics.main_frame['Date']==spotDate) & 
             (analytics.main_frame['Identifier']=="net_revenues")]["Value"].sum()
@@ -231,6 +235,8 @@ if st.session_state["authentication_status"]:
 
             # st.dataframe(analytics.main_frame)
             # AgGrid(analytics.main_frame)
+
+            rev_df = analytics.revenue_frame[(analytics.revenue_frame["Date"]==spotDate) & (analytics.revenue_frame["Client"]==client)]
 
             st.markdown("#### Key Performance Indicators")  
             col1, col2, col3,col4,col5 = st.columns(5)
@@ -255,7 +261,19 @@ if st.session_state["authentication_status"]:
                 write_metric(analytics,col2,"Take Rate",'{:.2f} bp',10000,"LBMS","take_rate",prevDate,spotDate)
                 write_metric(analytics,col3,"Net Revenue / MAU",'$ {:.3f}',1,"LBMS","net_revenue_per_active_user",prevDate,spotDate)
 
-                
+            col1, col2, col3,col4,col5 = st.columns(5)
+            if "Services" in spot_products:
+                col1.markdown(" ##### 👩‍💻Services")
+                write_metric(analytics,col2,"Net Revenues","$ {:,.0f}",1,"Services","net_revenues",prevDate,spotDate)
+                # Here we get data from revenue frame to display by type (PS / Marketing / Prop. Offers)
+                rev_df_services = rev_df[(rev_df["Product"]=="Services")]
+                col3.metric("Professional Services",
+                    '$ {:,.0f}'.format(rev_df_services[(rev_df_services['Revenue Type']=="Professional Services")]["Net Amount ($)"].sum()))
+                col4.metric("Marketing Services",
+                    '$ {:,.0f}'.format(rev_df_services[(rev_df_services['Revenue Type']=="Marketing Services")]["Net Amount ($)"].sum()))
+                col5.metric("Prop. Offers",
+                    '$ {:,.0f}'.format(rev_df_services[(rev_df_services['Revenue Type']=="Prop. Offers")]["Net Amount ($)"].sum()))
+            
             # st.markdown("""---""")
             st.markdown("#### Product Metrics")
             if "LBMS" in spot_products:
@@ -279,14 +297,14 @@ if st.session_state["authentication_status"]:
             st.markdown("""---""")
         
             st.markdown("#### 💵Revenues")
-            rev_df = analytics.revenue_frame[(analytics.revenue_frame["Date"]==spotDate) & (analytics.revenue_frame["Client"]==client)]
+            
             # AgGrid(rev_df)
             with st.expander("Client Revenues"):
                 # AgGrid(rev_df)
                 st.markdown("""---""")
                 col1, col2, = st.columns(2) 
-                col1.metric("Gross Revenues","$ {:,.0f}".format(get_lbms_metrics(analytics,spotDate,"gross_revenues")))
-                col2.metric("Net Revenues", "$ {:,.0f}".format(get_lbms_metrics(analytics,spotDate,"net_revenues")))
+                col1.metric("Gross Revenues","$ {:,.0f}".format(gross_top_line))
+                col2.metric("Net Revenues", "$ {:,.0f}".format(net_top_line))
                 # st.markdown("""---""")
                 net_rev_df= rev_df[rev_df['Net Amount ($)'] != 0]
                 net_rev_df = net_rev_df[["Business Line","Product","Revenue Type","Net Amount ($)", "Label"]]
@@ -355,6 +373,7 @@ if st.session_state["authentication_status"]:
                     gb.configure_column("Date",hide=True)
                     gb.configure_column("Channel",rowGroup=True,hide=True, rowGroupIndex= 0)
                     gb.configure_column("GMV ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+                    gb.configure_column("Points Accrued", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
                     gb.configure_column("Points Accrued ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
                     gb.configure_column("Points Expired ($)", aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
                     gridoptions = gb.build()
@@ -424,42 +443,49 @@ if st.session_state["authentication_status"]:
 
                 # st.markdown("""---""")
                 st.markdown("##### :family:Points Cohort Analytics")
-                df_up = analytics.lbms_users_points[(analytics.lbms_users_points["Date"]==spotDate)&  (analytics.lbms_users_points["Client"]==client)]
-                df_up["Average Points ($) in Cohort"]= df_up["Points Value ($)"] / df_up["Number Users"]
-                df_up["Points Value ($)"]= df_up["Points Value ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
-                df_up["Average Points ($) in Cohort"]= df_up["Average Points ($) in Cohort"].apply(lambda x: x.quantize(THREE_DECIMAL))
-                df_up = df_up.sort_values(["Average Points ($) in Cohort"], ascending=[False])
-                # df_up.sort_index('Average Points ($) in Cohort')
-                with st.expander("Points Cohort Data"):
-                    
-                    gb = GridOptionsBuilder.from_dataframe(df_up)
-                    gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
-                    gb.configure_side_bar()
-                    gb.configure_column("Average Points ($) in Cohort",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
-                    gb.configure_column("Client",hide=True)
-                    gb.configure_column("Date",hide=True)
-                    gb.configure_column("Points Value Threashold ($)",hide=True)
-                    gb.configure_column("Points Value ($)",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
 
-                    
-                    gridoptions = gb.build()
-                    response = AgGrid(
-                        df_up,
-                        gridOptions=gridoptions,
-                        height=300,
-                        enable_enterprise_modules=True,
-                        update_mode=GridUpdateMode.NO_UPDATE,
-                        fit_columns_on_grid_load=False,
-                        header_checkbox_selection_filtered_only=True,
-                        allow_unsafe_jscode=True,
-                        license_key=st.secrets["aggrid_license"]
-                        )
+                try:
+
+                    df_up = analytics.lbms_users_points[(analytics.lbms_users_points["Date"]==spotDate)&  (analytics.lbms_users_points["Client"]==client)]
+                    df_up["Average Points ($) in Cohort"]= df_up["Points Value ($)"] / df_up["Number Users"]
+                    df_up["Points Value ($)"]= df_up["Points Value ($)"].apply(lambda x: x.quantize(NO_DECIMAL))
+                    df_up["Average Points ($) in Cohort"]= df_up["Average Points ($) in Cohort"].apply(lambda x: x.quantize(THREE_DECIMAL))
+                    df_up = df_up.sort_values(["Average Points ($) in Cohort"], ascending=[False])
+                    # df_up.sort_index('Average Points ($) in Cohort')
+                    with st.expander("Points Cohort Data"):
+                        
+                        gb = GridOptionsBuilder.from_dataframe(df_up)
+                        gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
+                        gb.configure_side_bar()
+                        gb.configure_column("Average Points ($) in Cohort",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+                        gb.configure_column("Client",hide=True)
+                        gb.configure_column("Date",hide=True)
+                        gb.configure_column("Points Value Threashold ($)",hide=True)
+                        gb.configure_column("Points Value ($)",aggFunc="sum",type=["numericColumn"], precision=0,valueFormatter=k_sep_formatter)
+
+                        
+                        gridoptions = gb.build()
+                        response = AgGrid(
+                            df_up,
+                            gridOptions=gridoptions,
+                            height=300,
+                            enable_enterprise_modules=True,
+                            update_mode=GridUpdateMode.NO_UPDATE,
+                            fit_columns_on_grid_load=False,
+                            header_checkbox_selection_filtered_only=True,
+                            allow_unsafe_jscode=True,
+                            license_key=st.secrets["aggrid_license"]
+                            )
 
 
-                with st.expander("Point Value Analytics Chart"):
-                    fig2 = px.scatter(df_up[["Average Points ($) in Cohort","Number Users","Points Value ($)"]], x="Average Points ($) in Cohort", y="Number Users"
-                    ,title="Cohort Points Scatter Plot")
-                    st.plotly_chart(fig2)
+                    with st.expander("Point Value Analytics Chart"):
+                        fig2 = px.scatter(df_up[["Average Points ($) in Cohort","Number Users","Points Value ($)"]], x="Average Points ($) in Cohort", y="Number Users"
+                        ,title="Cohort Points Scatter Plot")
+                        st.plotly_chart(fig2)
+
+                except:
+                    st.warning("Points Cohort Analytics Unavailable for this client" )
+
 
             if "Marketplace" in spot_products:
                 st.markdown("""---""")

@@ -22,10 +22,12 @@ LBMS_DATA_FOLDER = "dra-client-usage-data-raw"
 CHANNELS_MAPPING = {
     "Debit Card":AccrualChannel.debit_card,
     "DEBIT CARDS":AccrualChannel.debit_card,
+    "Visa Debit":AccrualChannel.debit_card,
 
     "Credit Card":AccrualChannel.credit_card,
     "Credit Cards":AccrualChannel.credit_card,
     "CREDIT CARDS":AccrualChannel.credit_card,
+    "Ladies Credit Card":AccrualChannel.credit_card,
     
     "Investment":AccrualChannel.investment,
 
@@ -41,16 +43,21 @@ CHANNELS_MAPPING = {
     "Saving Account":AccrualChannel.casa,
     "Current Account":AccrualChannel.casa,
     "Term Deposits":AccrualChannel.casa,
+    "Fixed Deposits":AccrualChannel.casa,
 
     "Echannels-SMS":AccrualChannel.e_channels,
     "Echannels-Transaction":AccrualChannel.e_channels,
     "E-CHANNEL":AccrualChannel.e_channels,
     "E-Channel":AccrualChannel.e_channels,
     "ECHANNELS":AccrualChannel.e_channels,
+    "Mobile Banking":AccrualChannel.e_channels,
 
     "WEALTH MANAGEMENT":AccrualChannel.wealth_management,
 
     "MANUAL TRANSACTION":AccrualChannel.manual,
+    "Default Bonus":AccrualChannel.manual,
+    "Private Banking Bonus":AccrualChannel.manual,
+    "Tamayuz Banking Bonus":AccrualChannel.manual,
 }
 
 REDEMPTIONS_MAPPING = {
@@ -69,40 +76,114 @@ REDEMPTIONS_MAPPING = {
     "23":RedemptionOption.travel,
     "17":RedemptionOption.gift_card,
     "3":RedemptionOption.external,
+    "35":RedemptionOption.external,
+    "34":RedemptionOption.external,
+    "36":RedemptionOption.external,
+    "37":RedemptionOption.external,
+    "56":RedemptionOption.external,
     "8":RedemptionOption.reversal,
     "7":RedemptionOption.car
 
 }
 
-
+LBMS_CONTROLLER_CODE_MAPPING = {
+    "FULL":[
+        "Al Masraf",
+        'BDI',
+        'BJB',
+        'BML',
+        'BNI',
+        'BRI',
+        'CBI',
+        'CBQ',
+        'EBL',
+        'GBK',
+        'MTB',
+        'QIB',
+        'QNB',
+        'cardbuzz',
+        'commbank'
+    ],
+    "RED_AND_STAT":[
+        'TBO'
+    ],
+    "RED_ONLY":[
+        'Al Maryah'
+    ]
+}
 
 
 def BuildMonthlyLBMSData(client,month,year):
 
-    try:
-        print("Start BuildClientReport: " + client +"/"+ str(month) + "/"+ str(year))
-        
-        # config_manager = ClientConfigurationManager()
-        # config_manager.Init()
-        # config = config_manager.LoadConfig(client, month, year)
+    if client in LBMS_CONTROLLER_CODE_MAPPING["FULL"]:
+        try:
+            print("Start BuildClientReport: " + client +"/"+ str(month) + "/"+ str(year) + " - FULL MODE")
 
-        lbms_data = LBMSMonthlyData(client,month,year)
+            lbms_data = LBMSMonthlyData(client,month,year)
 
-        _processAcrruals_Standard(lbms_data)
-        _processRedemptions_Standard(lbms_data)
-        _processCustomersActivity_Standard(lbms_data)
-        _processState_Standard(lbms_data)
+            _processAcrruals_Standard(lbms_data)
+            _processRedemptions_Standard(lbms_data)
+            
+            _processState_Standard(lbms_data)
+            _processCustomersActivity_Standard(lbms_data)
+            
+            # save the report 
 
+            
+            lbms_data.Save()
+            print("Done BuildClientReport: " + client +"/"+ str(month) + "/"+ str(year))
+            return lbms_data
+        except:
+            traceback.print_exc()
+            print("Could not BuildClientReport:" +client +"/"+ str(month) + "/"+ str(year) )
+            return {}
+    
+    elif client in LBMS_CONTROLLER_CODE_MAPPING["RED_AND_STAT"]:
+        try:
+            print("Start BuildClientReport: " + client +"/"+ str(month) + "/"+ str(year) + " - RED_AND_STAT MODE")
 
-        # save the report 
-        lbms_data.Save()
-        print("Done BuildClientReport: " + client +"/"+ str(month) + "/"+ str(year))
-        return lbms_data
-    except:
-        traceback.print_exc()
-        print("Could not BuildClientReport:" +client +"/"+ str(month) + "/"+ str(year) )
-        return {}
-  
+            lbms_data = LBMSMonthlyData(client,month,year)
+
+           
+            _processRedemptions_Standard(lbms_data)
+            
+            lbms_data.metrics.lbms_state = LBMSState()
+            _processCustomersActivity_Standard(lbms_data)
+            
+            # save the report 
+
+            
+            lbms_data.Save()
+            print("Done BuildClientReport: " + client +"/"+ str(month) + "/"+ str(year))
+            return lbms_data
+        except:
+            traceback.print_exc()
+            print("Could not BuildClientReport:" +client +"/"+ str(month) + "/"+ str(year) )
+            return {}
+    
+    elif client in LBMS_CONTROLLER_CODE_MAPPING["RED_ONLY"]:
+        try:
+            print("Start BuildClientReport: " + client +"/"+ str(month) + "/"+ str(year) + " - RED_AND_STAT MODE")
+
+            lbms_data = LBMSMonthlyData(client,month,year)
+
+           
+            _processRedemptions_Standard(lbms_data)
+            
+          
+            # save the report 
+
+            
+            lbms_data.Save()
+            print("Done BuildClientReport: " + client +"/"+ str(month) + "/"+ str(year))
+            return lbms_data
+        except:
+            traceback.print_exc()
+            print("Could not BuildClientReport:" +client +"/"+ str(month) + "/"+ str(year) )
+            return {}
+    
+    else:
+        print("Not loading LBMS Data for: "+ client +"/"+ str(month) + "/"+ str(year))
 
 
 
@@ -155,6 +236,7 @@ def _processRedemptions_Standard(report):
     red_internal_cat = {}
     red_redemption_option = {}
     total_points_redeemed = 0
+    total_fiats_spent = 0
     for row in csvreader:
         
         loyalty_txn_type = "9999"
@@ -165,6 +247,7 @@ def _processRedemptions_Standard(report):
 
         trans_type = row[0]
         points = int(row[2])
+        fiats = Decimal(row[3])
         narration = row[4]
         redemption_option = RedemptionOption.unknown
         if loyalty_txn_type in REDEMPTIONS_MAPPING:
@@ -181,12 +264,18 @@ def _processRedemptions_Standard(report):
                 red_redemption_option[redemption_option]=PointsAndCount()
             
             total_points_redeemed += points
+            total_fiats_spent += fiats
             red_internal_cat[narration].sum+=points
+            red_internal_cat[narration].fiats+=fiats
             red_internal_cat[narration].count+=1
+
             red_redemption_option[redemption_option].sum+=points
+            red_redemption_option[redemption_option].fiats+=fiats
             red_redemption_option[redemption_option].count+=1
 
     report.metrics.points_redeemed= total_points_redeemed
+    report.metrics.fiats_spent=total_fiats_spent
+    # print ("FIATS SPENT = "+ str(total_fiats_spent))
     report.metrics.points_redeemed_per_internal_category = red_internal_cat
     report.metrics.points_redeemed_per_redemption_option =  red_redemption_option
     
@@ -198,6 +287,10 @@ def _processCustomersActivity_Standard(report):
     next(csvreader)
 
     custAcc = CustomersActivity()
+    total_uploaded = 0
+    total_concelled =0
+    total_user_with_points =0
+
     for row in csvreader:
         if len(row)==0:
             break
@@ -206,16 +299,29 @@ def _processCustomersActivity_Standard(report):
         
         if stat == 1:
             custAcc.new=value
+        if stat==2:
+            total_uploaded = value
         if stat == 3:
             custAcc.activated=value
         if stat == 6:
             custAcc.earned_points=value
+        if stat == 7:
+            total_user_with_points = value
         if stat == 9:
             custAcc.activated_and_earned_points=value
         if stat == 10:
             custAcc.cancelled=value
-    
+        if stat == 11:
+            total_cancelled = value
+
+
     report.metrics.customers_activity = custAcc
+
+    #update state
+    report.metrics.lbms_state.total_users += total_uploaded - total_cancelled
+    
+    report.metrics.lbms_state.total_users_with_points += total_user_with_points
+    
 
 def _processState_Standard(report):
     
@@ -290,12 +396,14 @@ def _processState_Standard(report):
     state.total_points+=state.points_points_tiering.no_points_amount 
     state.total_points+=state.points_points_tiering.max_tier_amount
     
-    for bds in state.users_points_tiering.bounds:
-        state.total_users+=bds.amount
-    state.total_users+=state.users_points_tiering.no_points_amount 
-    state.total_users+=state.users_points_tiering.max_tier_amount
+    # done in the customer activity function
 
-    state.total_users_with_points = state.total_users - state.users_points_tiering.no_points_amount
+    # for bds in state.users_points_tiering.bounds:
+    #     state.total_users+=bds.amount
+    # state.total_users+=state.users_points_tiering.no_points_amount 
+    # state.total_users+=state.users_points_tiering.max_tier_amount
+
+    # state.total_users_with_points = state.total_users - state.users_points_tiering.no_points_amount
 
     report.metrics.lbms_state = state
 
@@ -305,6 +413,9 @@ def UpdateClientAggregateReport(config,report):
 
     _processAcrruals_Standard(report)
     _processRedemptions_Standard(report)
-    _processCustomersActivity_Standard(report)
+    
     _processState_Standard(report)
+
+    # we complete the state with user metrics taken from customer activithy
+    _processCustomersActivity_Standard(report)
 

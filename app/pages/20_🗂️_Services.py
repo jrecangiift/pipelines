@@ -33,7 +33,7 @@ if st.session_state["authentication_status"]:
         # obj_list.sort()
         client_names = [c['Client'] for c in obj_list]
         
-        currencies = ["USD", "AED", "GBP", "EUR", "QAR"]
+        currencies = ["USD", "AED", "GBP", "EUR", "QAR","LKR","IDR"]
 
         with st.form(key='service_form', clear_on_submit=True):
             col1, col2 = st.columns(2)

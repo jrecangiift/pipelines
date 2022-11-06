@@ -24,6 +24,7 @@ class RedemptionMapping:
 @dataclass
 class LBMSConfiguration:
     local_ccy: str = "USD"
+    mode: str = ""
     point_value_to_local_ccy: Decimal = Decimal(1)
     include_comms :Boolean = False
 

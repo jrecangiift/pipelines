@@ -3,7 +3,7 @@ from decimal import Decimal
 
 CONSTANT_FX={
     "IDR":Decimal('0.000067'),
-    "AED":Decimal('0.35'),
+    "AED":Decimal('0.27'),
     "USD":Decimal('1'),
     "QAR":Decimal('0.27'),
     "BDT":Decimal('0.0096'),
@@ -11,7 +11,8 @@ CONSTANT_FX={
     "OMR":Decimal('2.60'),
     "MVR":Decimal('0.65'),
     "INR":Decimal('0.012'),
-    "KWD":Decimal('3.23')
+    "KWD":Decimal('3.23'),
+    'BHD':Decimal('2.71')
 }
 
 @dataclass
