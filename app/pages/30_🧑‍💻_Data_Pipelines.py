@@ -61,14 +61,18 @@ if st.session_state["authentication_status"]:
 
             if st.button("Refresh"):
 
-                lbms_monthly = LBMSMonthlyData.ListAll()
-                lbms_monthly = lbms_monthly.applymap(format_real_date)
-                lbms_monthly = lbms_monthly.reset_index()
-                st.session_state["lbms_monthly"]=lbms_monthly
-
+                try:
+                    lbms_monthly = LBMSMonthlyData.ListAll()            
+                    lbms_monthly = lbms_monthly.applymap(format_real_date)
+                    lbms_monthly = lbms_monthly.reset_index()
+                    st.session_state["lbms_monthly"]=lbms_monthly
+                except:
+                    st.warning("empty")
                 
-
-            AgGrid(st.session_state["lbms_monthly"],fit_columns_on_grid_load=True)
+            try:
+                AgGrid(st.session_state["lbms_monthly"],fit_columns_on_grid_load=True)
+            except:
+                st.warning("empty")
 
             st.markdown("#### Run Locally")
 

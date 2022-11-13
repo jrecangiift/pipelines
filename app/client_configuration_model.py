@@ -12,7 +12,8 @@ from typing import Dict,List
 from revenue_model import RevenueClassification
 import pandas as pd
 
-CLIENT_CONFIG_BUCKET = 'dra-config'
+# CLIENT_CONFIG_BUCKET = 'dra-config'
+CLIENT_CONFIG_BUCKET = 'dra-config-prod'
 
 @dataclass_json
 @dataclass

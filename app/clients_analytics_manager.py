@@ -8,6 +8,7 @@ import boto3
 from meta_data import GetClientMapDataFrame,GetClientMapList
 class ClientAnalyticsManager:
 
+    CLIENT_ANALYTICS_BUCKET = 'dra-clients-analyics-serialized-prod'
 
     def BuildMonthlyClientAnalytics(self, month, year):
         config_manager = ClientConfigurationManager()
@@ -48,7 +49,7 @@ class ClientAnalyticsManager:
                 # while ddb is on sandbox
             try:
                 if "Marketplace" in config.products:
-                    marketplace_data = MarketplaceReport.Load(9,2022)
+                    marketplace_data = MarketplaceReport.Load(month,year)
                     marketplace_data.month=month
                     marketplace_data.year=2022
                     cl_analytics.push_marketplace_data(config,marketplace_data)
@@ -77,7 +78,7 @@ class ClientAnalyticsManager:
         return cl_analytics
 
     def _saveMonthlyClientAnalytics(self,analytics, month, year):
-        bucket = 'dra-clients-analyics-serialized'
+        bucket = self.CLIENT_ANALYTICS_BUCKET
         key = str(month)+"@"+str(year)
         pickle_byte_obj = pickle.dumps(analytics)
         s3_resource = boto3.resource('s3')
@@ -85,7 +86,7 @@ class ClientAnalyticsManager:
 
         
     def LoadMonthlyClientAnalytics(self,month,year):
-        bucket = 'dra-clients-analyics-serialized'
+        bucket = self.CLIENT_ANALYTICS_BUCKET
         key = str(month)+"@"+str(year)      
         s3 = boto3.resource('s3')
         return pickle.loads(s3.Bucket(bucket).Object(key).get()['Body'].read())
@@ -93,15 +94,18 @@ class ClientAnalyticsManager:
     def LoadClientAnalytics(self,dates) -> ClientsAnalytics:
         analytics = ClientsAnalytics()
         for date in dates:
-            token = date.split('/')
-            analytics_temp = self.LoadMonthlyClientAnalytics(token[0],token[1])
-            analytics.concat(analytics_temp)
+            try:
+                token = date.split('/')
+                analytics_temp = self.LoadMonthlyClientAnalytics(token[0],token[1])
+                analytics.concat(analytics_temp)
+            except:
+                print("Could not load analytics for: "+date)
         return analytics
 
     
     def ListAll(self):
         s3_client = boto3.client('s3')
-        files = s3_client.list_objects_v2(Bucket='dra-clients-analyics-serialized')
+        files = s3_client.list_objects_v2(Bucket=self.CLIENT_ANALYTICS_BUCKET)
         dates = []
         if (files['KeyCount']>0):
             files_json = files['Contents']

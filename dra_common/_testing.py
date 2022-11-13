@@ -28,11 +28,6 @@ from meta_data import GetClientMapDataFrame, GetClientMapList
 # print(report.margins_frame)
 
 
-x = GetClientMapDataFrame()
-print(x)
-
-
-
 # import pandas as pd
 
 # warnings.filterwarnings('ignore')
@@ -263,3 +258,9 @@ print(x)
 # data = s3_client.get_object(Bucket=CLIENT_CONFIG_BUCKET, Key=key)
 # contents = data['Body'].read()
 # config = ClientConfiguration.from_json(contents)
+
+import warnings
+warnings.filterwarnings("ignore")
+cam =ClientAnalyticsManager()
+
+cam.BuildMonthlyClientAnalytics(11,2022)

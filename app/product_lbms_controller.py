@@ -17,7 +17,8 @@ from operator import attrgetter
 import csv
 import io
 
-LBMS_DATA_FOLDER = "dra-client-usage-data-raw"
+# LBMS_DATA_FOLDER = "dra-client-usage-data-raw"
+LBMS_DATA_FOLDER = "dra-lbms-data-raw-prod"
 
 CHANNELS_MAPPING = {
     "Debit Card":AccrualChannel.debit_card,

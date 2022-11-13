@@ -12,7 +12,7 @@ from typing import Dict
 import pandas as pd
 import pickle
 
-MARKETPLACE_DATA_AWS = 'dra-marketplace-data'
+MARKETPLACE_DATA_AWS = 'dra-marketplace-data-prod'
 
 
 MARGINS_FRAME_COLUMNS = ["Supplier", "Client","Date", "Margin Amount", "Currency Code","Number Transactions", "Transactions Amount"]

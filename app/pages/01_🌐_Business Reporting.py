@@ -255,5 +255,12 @@ if st.session_state["authentication_status"]:
 
 
 
-        if st.session_state["product_selected"]=="Marketplace":
-            st.write(st.session_state["product_selected"])
+    if menu_selection == "Services":  
+        st.write("services") 
+
+        import plotly_express as px
+        df = px.data.gapminder().query("year==2007")
+        st.dataframe(df)
+
+        fig = px.scatter_geo(df, locations="iso_alpha",size="pop",color = "continent",width=1200,height=600)
+        st.plotly_chart(fig)

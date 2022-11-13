@@ -651,7 +651,7 @@ class ClientsAnalytics:
 
             # # markups
             
-            df_markups = data.markups_det_frame
+            df_markups = data.markups_det_frame[data.margins_frame['Client']== marketplace_client_code]
             if (len(df_markups.index)>0):
                 df_markups[(df_markups['Client']== marketplace_client_code)].replace(marketplace_client_code, client_code, inplace=True)
                 #calculate $ amount
@@ -716,7 +716,7 @@ class ClientsAnalytics:
         BIZ = "Corporate Loyalty"
         PROD = "Marketplace"
         
-        total_margins_cst_usd = self.marketplace_margins["Margin ($)"].sum()
+        total_margins_cst_usd = self.marketplace_margins.query('Client == @client')["Margin ($)"].sum()
         rev_items.append(
             {
                 "Client": client,
@@ -733,7 +733,7 @@ class ClientsAnalytics:
                 "Label": "Monthly Margins from Suppliers"
             })
         total_markups_cst_usd = max(
-            self.marketplace_markups_det["Markup ($)"].sum(), 0)
+            self.marketplace_markups_det.query('Client == @client')["Markup ($)"].sum(), 0)
         rev_items.append(
             {
                 "Client": client,
@@ -757,37 +757,37 @@ class ClientsAnalytics:
 
     def marketplace_finalize_metrics(self, client_config, month, year):
 
-        client_code = client_config.client_code
+        client = client_config.client_code
         date = str(month)+"/"+str(year)
         BIZ = "Corporate Loyalty"
         PROD = "Marketplace"
         df_rev = self.revenue_frame
 
-        net_revenues = df_rev[(df_rev['Client'] == client_code) & (df_rev['Date'] == date) & (
+        net_revenues = df_rev[(df_rev['Client'] == client) & (df_rev['Date'] == date) & (
             df_rev['Business Line'] == BIZ) & (df_rev['Product'] == PROD)]["Net Amount ($)"].sum()
-        gross_revenues = df_rev[(df_rev['Client'] == client_code) & (df_rev['Date'] == date) & (
+        gross_revenues = df_rev[(df_rev['Client'] == client) & (df_rev['Date'] == date) & (
             df_rev['Business Line'] == BIZ) & (df_rev['Product'] == PROD)]["Gross Amount ($)"].sum()
-        transactions_gmv = self.marketplace_margins["Transactions Amount ($)"].sum(
+        transactions_gmv = self.marketplace_margins.query('Client == @client')["Transactions Amount ($)"].sum(
         )
-        transactions_count = self.marketplace_margins["Number Transactions"].sum(
+        transactions_count = self.marketplace_margins.query('Client == @client')["Number Transactions"].sum(
         )
-        total_margins_cst_usd = self.marketplace_margins["Margin ($)"].sum()
+        total_margins_cst_usd = self.marketplace_margins.query('Client == @client')["Margin ($)"].sum()
         total_markups_cst_usd = max(
-            self.marketplace_markups_det["Markup ($)"].sum(), 0)
+            self.marketplace_markups_det.query('Client == @client')["Markup ($)"].sum(), 0)
 
         items = []
-        items.append(mk_mf_item(client_code, date, BIZ, PROD,
+        items.append(mk_mf_item(client, date, BIZ, PROD,
                      "metrics", "net_revenues", net_revenues))
 
-        items.append(mk_mf_item(client_code, date, BIZ, PROD,
+        items.append(mk_mf_item(client, date, BIZ, PROD,
                      "metrics", "gross_revenues", gross_revenues))
-        items.append(mk_mf_item(client_code, date, BIZ, PROD,
+        items.append(mk_mf_item(client, date, BIZ, PROD,
                      "metrics", "transactions_gmv", transactions_gmv))
-        items.append(mk_mf_item(client_code, date, BIZ, PROD,
+        items.append(mk_mf_item(client, date, BIZ, PROD,
                      "metrics", "transactions_count", transactions_count))
-        items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
+        items.append(mk_mf_item(client, date, BIZ, PROD, "metrics",
                      "margins_rate", total_margins_cst_usd/transactions_gmv))
-        items.append(mk_mf_item(client_code, date, BIZ, PROD, "metrics",
+        items.append(mk_mf_item(client, date, BIZ, PROD, "metrics",
                      "markups_rate", total_markups_cst_usd/transactions_gmv))
 
         df_secondary = pd.DataFrame(items, columns=MAIN_FRAME_COLUMNS)

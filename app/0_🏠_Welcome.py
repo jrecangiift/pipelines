@@ -7,7 +7,7 @@ from yaml import SafeLoader
 import styling
 from PIL import Image
 from streamlit_option_menu import option_menu
-
+import boto3
 import streamlit as st
 st.set_page_config(layout="wide")
 from styling import k_sep_formatter
@@ -32,20 +32,21 @@ selected2
 
 
 
-os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["key"]
-print(os.environ["AWS_ACCESS_KEY_ID"])
-st.write(os.environ["AWS_ACCESS_KEY_ID"])
-os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["secret"]
-os.environ["AWS_DEFAULT_REGION"] = st.secrets["region"]
+# os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["key"]
+# print(os.environ["AWS_ACCESS_KEY_ID"])
+# st.write(os.environ["AWS_ACCESS_KEY_ID"])
+# os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["secret"]
+# os.environ["AWS_DEFAULT_REGION"] = st.secrets["region"]
 
 
 
 if st.session_state["authentication_status"]:
 
-    
-
-    print(os.environ["AWS_ACCESS_KEY_ID"])
-    st.write(os.environ["AWS_ACCESS_KEY_ID"])
+    s3 = boto3.resource('s3')
+    print(boto3.DEFAULT_SESSION.get_credentials().access_key)    
+    st.write(boto3.DEFAULT_SESSION.get_credentials().access_key)   
+    # print(os.environ["aws_access_key_id"])
+    # st.write(os.environ["aws_access_key_id"])
 
     image = Image.open('assets/analytics_logical_architecture.png')
     with st.expander("Logical Architecture"):

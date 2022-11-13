@@ -193,10 +193,12 @@ CLIENT_REGIONAL_CONFIG = {
 #                     })
 #     return entries
 
+CLIENT_CONFIG_BUCKET = 'dra-config-prod'
+
 def GetClientMapList():
     key="all_clients.json"
     s3_client = boto3.client('s3')
-    data = s3_client.get_object(Bucket='dra-config', Key=key)
+    data = s3_client.get_object(Bucket=CLIENT_CONFIG_BUCKET, Key=key)
     contents = data['Body'].read()
     
     cl_lst = ClientList.from_json(contents)

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 CONSTANT_FX={
     "IDR":Decimal('0.000067'),
-    "AED":Decimal('0.27'),
+    "AED":Decimal('0.27229'),
     "USD":Decimal('1'),
     "QAR":Decimal('0.27'),
     "BDT":Decimal('0.0096'),

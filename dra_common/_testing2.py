@@ -18,18 +18,23 @@ from clients_analytics_manager import ClientAnalyticsManager
 
 # print(srds)
 
-config_manager = ClientConfigurationManager()
-config_manager.Init()
-month=5
-cl='Al Masraf'
+# config_manager = ClientConfigurationManager()
+# config_manager.Init()
+# month=5
+# cl='Al Masraf'
 
-cl_analytics = ClientsAnalytics()
-config = config_manager.LoadConfig(cl,month,2022)
-lbms_data = LBMSMonthlyData.Load(cl,month,2022)
-cl_analytics.push_lbms_data(config,lbms_data)
-# marketplace_data = MarketplaceReport.Load(9,2022)
-# marketplace_data.month=month
-# marketplace_data.year=2022
-# cl_analytics.push_marketplace_data(config,marketplace_data)
-print("Loading for: "+cl + "/" + str(month)+ " successful")
+# cl_analytics = ClientsAnalytics()
+# config = config_manager.LoadConfig(cl,month,2022)
+# lbms_data = LBMSMonthlyData.Load(cl,month,2022)
+# cl_analytics.push_lbms_data(config,lbms_data)
+# # marketplace_data = MarketplaceReport.Load(9,2022)
+# # marketplace_data.month=month
+# # marketplace_data.year=2022
+# # cl_analytics.push_marketplace_data(config,marketplace_data)
+# print("Loading for: "+cl + "/" + str(month)+ " successful")
 
+x = BuildMarketplaceReport(11,2022)
+
+print(x.margins_frame)
+
+print(x.markups_det_frame)

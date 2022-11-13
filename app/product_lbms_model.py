@@ -16,7 +16,8 @@ from revenue_model import RevenueItem
 import pandas as pd
 
 
-LBMS_DATA_BUCKET = 'dra-products-lbms-data'
+# LBMS_DATA_BUCKET = 'dra-products-lbms-data'
+LBMS_DATA_BUCKET = 'dra-lbms-prod'
 
 class AccrualChannel(str,Enum):
     debit_card = "Debit Card"

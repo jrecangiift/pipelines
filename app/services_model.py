@@ -7,7 +7,7 @@ import uuid
 from enum import Enum
 from meta_data import ServiceType
 
-TABLE_SERVICES = "dra-services-test"
+TABLE_SERVICES = "dra-services-prod"
 
 
 
