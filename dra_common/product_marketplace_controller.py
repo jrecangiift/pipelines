@@ -8,7 +8,7 @@ import boto3
 from product_marketplace_model import MarketplaceReport, MarketplaceTransaction
 from boto3.dynamodb.conditions import Key
 from decimal import Decimal
-
+from fx_conversion import FXConverter
 TABLE_TRANSACTIONS = "reportingTransactions"
 
 def BuildMarketplaceReport(month, year):
@@ -46,9 +46,20 @@ def BuildMarketplaceReport(month, year):
                 transaction['ClientTransactionAmount'],
                 transaction['SupplierTransactionAmount'],
                 transaction['CalculatedMargin'],
-                str(month)+"/"+str(year)
+                str(month)+"/"+str(year),
+                transaction['RedemptionOption'],
+                transaction['CategoryName'],
+                transaction['SubCategoryName'],
+                transaction['ProductName']
             )
             report.addTransaction(tr)
+        
+        # apply conversion to Margin($)
+        fx = FXConverter()
+        report.all_transactions_frame['Margins ($)'] =report.all_transactions_frame.apply(lambda row:fx.ccy_to_cst_usd(row['Margin Amount'],row['Product Currency']),axis=1)
+        report.all_transactions_frame['Amount ($)'] = report.all_transactions_frame.apply(lambda row:fx.ccy_to_cst_usd(row['Product Amount'],row['Product Currency']),axis=1)
+
+
 
         report.Save()
 

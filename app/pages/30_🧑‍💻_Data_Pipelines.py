@@ -23,6 +23,10 @@ from datetime import date
 
 import meta_data as md
 
+
+import warnings 
+warnings.filterwarnings('ignore')
+
 def format_date(s):
     toks = s.split("/")
     return datetime.date(int(toks[1]),int(toks[0]),1).strftime('%B %Y')
@@ -142,8 +146,8 @@ if st.session_state["authentication_status"]:
                     st.success("Run successful" )
                     AgGrid(report.margins_frame)
                     AgGrid(report.markups_det_frame)
-                except:
-                    st.success("Run failed" )
+                except Exception as e:
+                    st.error("Run failed" + str(e) )
 
     if menu_selection == 'Analytical Layers':
 
@@ -160,6 +164,6 @@ if st.session_state["authentication_status"]:
                 analytics = cam.BuildMonthlyClientAnalytics(st.session_state["month"],st.session_state["year"] )
                 st.success("Run successful" )
                 AgGrid(analytics.main_frame)
-                AgGrid(analytics.push_execution_frame   )
+                AgGrid(analytics.push_execution_frame)
             except:
-                st.success("Run failed" )
+                st.error("Run failed" +str(Exception) )

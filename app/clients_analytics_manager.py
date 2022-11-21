@@ -1,6 +1,7 @@
 from client_configuration_model import ClientConfigurationManager
 from product_lbms_model import LBMSMonthlyData
 from product_marketplace_model import MarketplaceReport
+from product_giiftbox_model import GiiftBoxMonthlyReport
 from clients_analytics import ClientsAnalytics
 import traceback
 import pickle
@@ -27,6 +28,7 @@ class ClientAnalyticsManager:
             try:
                 config = config_manager.LoadConfig(client,month,year)
             except:
+                traceback.print_exc()
                 cl_analytics.report_push_execution(client,month,year,"LBMS",False)
                 cl_analytics.report_push_execution(client,month,year,"Marketplace",False)
                 continue
@@ -42,9 +44,24 @@ class ClientAnalyticsManager:
                         cl_analytics.report_push_execution(client,month,year,"LBMS",True)
                     print("LBMS Analytics for: "+client + "/" + str(month)+ " successful")
             except:
+                traceback.print_exc()
                 cl_analytics.report_push_execution(client,month,year,"LBMS",False)
                 print("LBMS Analytics for: "+client + "/" + str(month)+ " failed")
                 pass
+        
+            try:          
+                if "GiiftBox" in config.products:
+                
+                    data = GiiftBoxMonthlyReport.Load(client,month,year)
+                    cl_analytics.push_box_data(config,month,year,data)
+                    cl_analytics.report_push_execution(client,month,year,"GiiftBox",True)
+                    print("GiiftBox Analytics for: "+client + "/" + str(month)+ " successful")
+            except:
+                traceback.print_exc()
+                cl_analytics.report_push_execution(client,month,year,"GiiftBox",False)
+                print("GiiftBox Analytics for: "+client + "/" + str(month)+ " failed")
+                pass
+               
                
                 # while ddb is on sandbox
             try:
@@ -55,7 +72,8 @@ class ClientAnalyticsManager:
                     cl_analytics.push_marketplace_data(config,marketplace_data)
                     cl_analytics.report_push_execution(client,month,year,"Marketplace",True)
                     print("Marketplace Analytics for: "+client + "/" + str(month)+ " successful")
-            except:
+            except :
+                traceback.print_exc()
                 cl_analytics.report_push_execution(client,month,year,"Marketplace",False)
                 print("Marketplace Analytics for: "+client + "/" + str(month)+ " failed")
                 pass

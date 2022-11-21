@@ -220,7 +220,43 @@ class ClientsAnalytics:
             secondary_metrics_items, columns=MAIN_FRAME_COLUMNS)
         self.main_frame = pd.concat([self.main_frame, df_secondary])
 
+    def push_box_data(self,client_config,month,year, data):
+        #we push everything in mf and revenue. no specific needed as datra model simple currently (4 int data points)
+        print()
 
+        #calculate revenues
+        client = client_config.client_code
+        date = str(month)+'/'+str(year)
+
+        # Revenues - calculate revenues from the lbms data and client config revenue declaration
+        rev_items = []
+        # Single Fixed Revenue - throw an error. LBMS product does not incur single fixed (put under services)
+
+        fx = FXConverter(
+            point_value=client_config.lbms_configuration.point_value_to_local_ccy,
+            ccy_code=client_config.lbms_configuration.local_ccy
+        )
+
+        for dec in client_config.revenues.recurring_fixed_revenues:
+            cl = dec.classification
+            if cl.product_line == "Giiftbox":
+                cl.tags["frequency"] = "monthly"
+                cl.tags["variability"] = "fixed"
+                rev_items.append(
+                    {
+                        "Client": client,
+                        "Date": date,
+                        "Business Line": cl.business_line.value,
+                        "Product": cl.product_line.value,
+                        "Revenue Type": cl.tags["type"],
+                        "Gross Amount ($)": fx.ccy_to_cst_usd(dec.amount, dec.currency_code),
+                        "Net Amount ($)": fx.ccy_to_cst_usd(dec.amount, dec.currency_code)*(1-dec.net_offset),
+                        "Base Amount": dec.amount,
+                        "Base Currency": dec.currency_code,
+                        "All Tags": cl.tags,
+                        "Net Offset": dec.net_offset,
+                        "Label": dec.label
+                    })
 
 
     # URL is <business.product.type.identifier>
@@ -763,31 +799,45 @@ class ClientsAnalytics:
         PROD = "Marketplace"
         df_rev = self.revenue_frame
 
+
+        items = []
         net_revenues = df_rev[(df_rev['Client'] == client) & (df_rev['Date'] == date) & (
             df_rev['Business Line'] == BIZ) & (df_rev['Product'] == PROD)]["Net Amount ($)"].sum()
         gross_revenues = df_rev[(df_rev['Client'] == client) & (df_rev['Date'] == date) & (
             df_rev['Business Line'] == BIZ) & (df_rev['Product'] == PROD)]["Gross Amount ($)"].sum()
-        transactions_gmv = self.marketplace_margins.query('Client == @client')["Transactions Amount ($)"].sum(
-        )
-        transactions_count = self.marketplace_margins.query('Client == @client')["Number Transactions"].sum(
-        )
-        total_margins_cst_usd = self.marketplace_margins.query('Client == @client')["Margin ($)"].sum()
-        total_markups_cst_usd = max(
-            self.marketplace_markups_det.query('Client == @client')["Markup ($)"].sum(), 0)
-
-        items = []
         items.append(mk_mf_item(client, date, BIZ, PROD,
-                     "metrics", "net_revenues", net_revenues))
-
+            "metrics", "net_revenues", net_revenues))
         items.append(mk_mf_item(client, date, BIZ, PROD,
                      "metrics", "gross_revenues", gross_revenues))
-        items.append(mk_mf_item(client, date, BIZ, PROD,
+
+        client_frame_margins = self.marketplace_margins.query('Client == @client')
+        client_frame_markups = self.marketplace_markups_det.query('Client == @client')
+
+        transactions_gmv = 0
+        transactions_count = 0
+        total_margins_cst_usd = 0
+        total_markups_cst_usd = 0 
+
+    
+
+        if len(client_frame_margins.index)>0:
+            transactions_gmv = self.marketplace_margins.query('Client == @client')["Transactions Amount ($)"].sum(
+            )
+            transactions_count = self.marketplace_margins.query('Client == @client')["Number Transactions"].sum(
+            )
+            total_margins_cst_usd = self.marketplace_margins.query('Client == @client')["Margin ($)"].sum()
+            items.append(mk_mf_item(client, date, BIZ, PROD,
                      "metrics", "transactions_gmv", transactions_gmv))
-        items.append(mk_mf_item(client, date, BIZ, PROD,
+            items.append(mk_mf_item(client, date, BIZ, PROD,
                      "metrics", "transactions_count", transactions_count))
-        items.append(mk_mf_item(client, date, BIZ, PROD, "metrics",
+            items.append(mk_mf_item(client, date, BIZ, PROD, "metrics",
                      "margins_rate", total_margins_cst_usd/transactions_gmv))
-        items.append(mk_mf_item(client, date, BIZ, PROD, "metrics",
+        
+        if len(client_frame_markups.index)>0:
+            total_markups_cst_usd = max(
+                self.marketplace_markups_det.query('Client == @client')["Markup ($)"].sum(), 0)
+                
+            items.append(mk_mf_item(client, date, BIZ, PROD, "metrics",
                      "markups_rate", total_markups_cst_usd/transactions_gmv))
 
         df_secondary = pd.DataFrame(items, columns=MAIN_FRAME_COLUMNS)

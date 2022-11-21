@@ -6,6 +6,7 @@ push-shared:
 	cp dra_common/client_configuration_model.py app/
 	cp dra_common/product_lbms_controller.py app/
 	cp dra_common/product_lbms_model.py app/
+	cp dra_common/product_giiftbox_model.py app/
 	cp dra_common/product_marketplace_controller.py app/
 	cp dra_common/product_marketplace_model.py app/
 	cp dra_common/services_model.py app/

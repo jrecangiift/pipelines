@@ -1,17 +1,17 @@
 credentials:
   usernames:
-    jrecan:
-      email: jsmith@gmail.com
-      name: jrecan
-      password: '$2b$12$jtMdqtmHAUdp1F1w2f54eOeGNV81MYE0Jku3y.RAhFwqleOjCjZb2' # To be replaced with hashed password
+    admin:
+      email: ND
+      name: admin
+      password: '$2b$12$NNr8l/RSFSyjzMAtgQdifOzcBpLgjOkv1uZF1yUR0Q7vfSrcQlFya' # To be replaced with hashed password
     pxa:
-      email: rbriggs@gmail.com
+      email: ND
       name: pxa
-      password: '$2b$12$apguGJ.7LLxRPxlFyXEEMezZbwHu8c/zVPcwdcRQfsw0GYpdkX7U2' # To be replaced with hashed password
+      password: '$2b$12$NNr8l/RSFSyjzMAtgQdifOzcBpLgjOkv1uZF1yUR0Q7vfSrcQlFya' # To be replaced with hashed password
 cookie:
   expiry_days: 30
   key: some_signature_key
   name: some_cookie_name
 preauthorized:
   emails:
-  - melsby@gmail.com
+  - ND

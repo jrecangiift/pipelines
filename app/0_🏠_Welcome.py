@@ -43,8 +43,8 @@ selected2
 if st.session_state["authentication_status"]:
 
     s3 = boto3.resource('s3')
-    print(boto3.DEFAULT_SESSION.get_credentials().access_key)    
-    st.write(boto3.DEFAULT_SESSION.get_credentials().access_key)   
+    # print(boto3.DEFAULT_SESSION.get_credentials().access_key)    
+    # st.write(boto3.DEFAULT_SESSION.get_credentials().access_key)   
     # print(os.environ["aws_access_key_id"])
     # st.write(os.environ["aws_access_key_id"])
 

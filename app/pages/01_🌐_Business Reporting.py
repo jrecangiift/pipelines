@@ -58,7 +58,7 @@ if st.session_state["authentication_status"]:
     list_of_dates = get_dates_list_formatted()
 
 
-    menu_selection = option_menu(None, ["Group Revenues",  "Products", 'Services'], 
+    menu_selection = option_menu(None, ["Group Revenues",  "Products", 'Services', 'Countries'], 
             icons=['file-earmark', "clipboard-data", 'gear'], 
             menu_icon="cast", default_index=0, orientation="horizontal" )
 
@@ -258,9 +258,51 @@ if st.session_state["authentication_status"]:
     if menu_selection == "Services":  
         st.write("services") 
 
-        import plotly_express as px
-        df = px.data.gapminder().query("year==2007")
-        st.dataframe(df)
 
-        fig = px.scatter_geo(df, locations="iso_alpha",size="pop",color = "continent",width=1200,height=600)
+    
+    if menu_selection == "Countries":  
+       
+
+        analytics = LoadAllAnalytics()
+        from meta_data import GetClientMapDataFrame
+        import math
+        df_client_map = GetClientMapDataFrame()
+        
+        indexed_client_map = df_client_map.set_index(['Client'])
+
+       
+        month_anal = analytics.revenue_frame.query("Date=='5/2022'")
+
+        month_anal["Country"] = month_anal.apply(lambda row: indexed_client_map.loc[row["Client"],"Country"],axis=1)
+
+        groupedby_country = month_anal.groupby(['Country'])["Net Amount ($)"].sum().to_frame().reset_index()
+
+
+        ISO_ALPHA = {
+            "Bengladesh":"BGD",
+            "China":"CHN",
+            "Indonesia":'IDN',
+            "Kuwait":"KWT",
+            "Maldives":"MDV",
+            "Qatar":'QAT',
+            "South Africa":'ZAF',
+            'Sri-Lanka':'LKA',
+            'UAE':'ARE',
+            "Mauritius":"MUS"
+        }
+
+        groupedby_country['ISO'] = groupedby_country.apply(lambda row: ISO_ALPHA[row['Country']],axis=1)
+        groupedby_country['Amt_flt'] = groupedby_country.apply(lambda row: math.log(float(row['Net Amount ($)'])/50),axis=1)
+
+        groupedby_country['formatted_amt'] = groupedby_country.apply(lambda row: '$ {:,.0f}'.format(row['Net Amount ($)']),axis=1)
+
+        #out of chaina revenues
+        # groupedby_country = groupedby_country[groupedby_country['Country'] !='China']
+
+        # AgGrid(groupedby_country)
+
+        import plotly_express as px
+        
+        fig = px.scatter_geo(groupedby_country, locations="ISO",size="Amt_flt",color='Country',hover_name='formatted_amt',width=1200,height=600,
+        title='Monthly Revenues By Country')
         st.plotly_chart(fig)

@@ -263,4 +263,4 @@ import warnings
 warnings.filterwarnings("ignore")
 cam =ClientAnalyticsManager()
 
-cam.BuildMonthlyClientAnalytics(11,2022)
+cam.BuildMonthlyClientAnalytics(10,2022)

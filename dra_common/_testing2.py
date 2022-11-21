@@ -37,4 +37,4 @@ x = BuildMarketplaceReport(11,2022)
 
 print(x.margins_frame)
 
-print(x.markups_det_frame)
+print(x.all_transactions_frame)

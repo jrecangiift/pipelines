@@ -11,13 +11,15 @@ from dataclasses_json import dataclass_json
 from typing import Dict
 import pandas as pd
 import pickle
+from fx_conversion import FXConverter
 
 MARKETPLACE_DATA_AWS = 'dra-marketplace-data-prod'
 
 
 MARGINS_FRAME_COLUMNS = ["Supplier", "Client","Date", "Margin Amount", "Currency Code","Number Transactions", "Transactions Amount"]
 MARKUPS_DET_FRAME_COLUMNS =  ["Supplier", "Client","Date", "Markup Amount", "Currency Code","Number Transactions", "Transactions Amount"]
-
+ALL_TRANSACTIONS = ["Supplier","Client","Client Currency", "Client Amount", "Product Currency", "Product Amount",
+"Margin Amount","Date","Redemption Option","Category","Subcategory","Product Name"]
 
 @dataclass
 class MarketplaceTransaction:
@@ -29,6 +31,10 @@ class MarketplaceTransaction:
     product_amount:Decimal
     margin_amount:Decimal
     date:str
+    redemptionOption:str
+    categoryName:str
+    subcategoryName:str
+    productName:str
 
 
 @dataclass
@@ -37,6 +43,7 @@ class MarketplaceReport:
     year: int
     margins_frame : pd.DataFrame = pd.DataFrame(columns=MARGINS_FRAME_COLUMNS)
     markups_det_frame : pd.DataFrame = pd.DataFrame(columns=MARKUPS_DET_FRAME_COLUMNS)
+    all_transactions_frame :pd.DataFrame = pd.DataFrame(columns = ALL_TRANSACTIONS)
     # clients: Dict[str, CurrencyAggregates] = field(default_factory=dict)
     # suppliers: Dict[str, CurrencyAggregates] = field(default_factory=dict)
 
@@ -46,7 +53,29 @@ class MarketplaceReport:
          # temp fix the margin amount being str not Decimal
         if isinstance(tr.margin_amount,str):
             tr.margin_amount = Decimal(tr.margin_amount)
-        
+        fx_conv = FXConverter()
+        #push into all transactions frame
+        all_items =[]
+        all_items.append({
+            'Supplier':tr.supplier,
+            'Client':tr.client,
+            'Client Currency':tr.client_ccy,
+            'Client Amount':tr.client_amount,
+            'Product Currency':tr.product_ccy,
+            'Product Amount':tr.product_amount,
+            'Margin Amount':tr.margin_amount,
+            'Date':tr.date,
+            'Redemption Option':tr.redemptionOption,
+            'Category':tr.categoryName,
+            'Subcategory':tr.subcategoryName,
+            'Product Name':tr.productName,
+            # 'Margin ($)': fx_conv.ccy_to_cst_usd(amount=tr.margin_amount,ccy=tr.product_amount)
+        })
+        df = pd.DataFrame(all_items,columns=ALL_TRANSACTIONS)
+        self.all_transactions_frame=pd.concat([self.all_transactions_frame,df], ignore_index=True)
+
+
+
         # PROCESS MARGINS - store all transactions then aggregate 
         df = self.margins_frame[(self.margins_frame["Supplier"]==tr.supplier) &(self.margins_frame["Client"]==tr.client) &(self.margins_frame["Currency Code"]==tr.product_ccy)]
         # no entry yet
